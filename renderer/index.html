@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: blob: https://media.giphy.com https://*.giphy.com; media-src 'self' blob: mediastream: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src ws: wss: http: https:;" />
+  <title>Discordia</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ================= BARRA DE TITULO ================= -->
+<header class="titlebar">
+  <div class="tb-left">
+    <img src="../assets/wordmark.png" class="tb-wordmark" alt="Discordia" />
+    <span id="tbStatus" class="tb-status off">desconectado</span>
+  </div>
+  <div class="tb-drag"></div>
+  <div class="tb-controls">
+    <button class="tb-btn" id="btnMin" title="Minimizar"><svg viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="1"/></svg></button>
+    <button class="tb-btn" id="btnMax" title="Maximizar"><svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1"/></svg></button>
+    <button class="tb-btn danger" id="btnClose" title="Fechar"><svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2" fill="none"/></svg></button>
+  </div>
+</header>
+
+<!-- ================= TELA DE CONEXAO ================= -->
+<section id="connectScreen" class="connect">
+  <div class="connect-bg"></div>
+  <div class="connect-card">
+    <img src="../assets/logo.png" class="connect-logo" alt="" />
+    <img src="../assets/wordmark.png" class="connect-wordmark" alt="Discordia" />
+    <p class="sub">Voz, video e tela compartilhada com audio. Simples assim.</p>
+
+    <label class="field">
+      <span>Seu nome</span>
+      <input id="inpName" type="text" maxlength="24" placeholder="Como querem te chamar?" autocomplete="off" />
+    </label>
+
+    <label class="field">
+      <span>Servidor</span>
+      <input id="inpServer" type="text" placeholder="ws://localhost:45070" autocomplete="off" />
+    </label>
+
+    <div class="connect-actions">
+      <button class="btn primary big" id="btnConnect">Conectar</button>
+      <button class="btn ghost big" id="btnHost">Hospedar no meu PC</button>
+    </div>
+
+    <div id="connectMsg" class="connect-msg"></div>
+
+    <div id="hostInfo" class="host-info hidden">
+      <div class="host-title">Servidor rodando neste PC</div>
+      <div class="host-sub">Passe um destes enderecos para os seus amigos:</div>
+      <div id="hostAddrs" class="host-addrs"></div>
+      <div id="fwBox" class="fw-box hidden">
+        <span id="fwText">O firewall do Windows pode bloquear as conexoes dos seus amigos.</span>
+        <button class="btn ghost small" id="btnFirewall">Liberar no firewall</button>
+      </div>
+      <div class="host-hint">Mesma rede/Wi-Fi ou VPN funciona direto. Pela internet, libere a porta no roteador.</div>
+    </div>
+
+    <div class="connect-foot"><span id="appVersion"></span></div>
+  </div>
+</section>
+
+<!-- ================= APP ================= -->
+<main id="appScreen" class="app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="server-head">
+      <div class="server-name" id="serverName">Servidor</div>
+      <div class="server-sub" id="serverSub">conectado</div>
+    </div>
+
+    <div class="channels">
+      <div class="ch-label">
+        <span>Salas de voz</span>
+        <button class="ch-add" id="btnNewRoom" title="Criar sala">+</button>
+      </div>
+      <div id="roomList" class="room-list"></div>
+    </div>
+
+    <div class="user-panel">
+      <button class="avatar sm" id="selfAvatar" title="Editar perfil">EU</button>
+      <div class="user-meta">
+        <div class="user-name" id="selfName">Voce</div>
+        <div class="user-state" id="selfState">Disponivel</div>
+      </div>
+      <button class="icon-btn" id="btnMicMini" title="Microfone (Ctrl+Shift+M)"></button>
+      <button class="icon-btn" id="btnDeafMini" title="Silenciar tudo (Ctrl+Shift+D)"></button>
+      <button class="icon-btn" id="btnSettings" title="Configuracoes"></button>
+    </div>
+  </aside>
+
+  <!-- CENTRO -->
+  <section class="stage-wrap">
+    <div class="stage-head">
+      <div class="stage-title">
+        <span class="hash">#</span>
+        <span id="stageRoom">nenhuma sala</span>
+      </div>
+      <div class="stage-tools">
+        <div class="seg" id="layoutSeg">
+          <button class="seg-btn" data-layout="auto" title="Automatico">Auto</button>
+          <button class="seg-btn" data-layout="grade" title="Tudo em grade">Grade</button>
+          <button class="seg-btn" data-layout="foco" title="Um grande + miniaturas">Foco</button>
+        </div>
+        <label class="size-ctl" title="Tamanho dos quadros">
+          <svg viewBox="0 0 24 24"><path d="M3 3h8v2H5v6H3V3zm18 0v8h-2V5h-6V3h8zM3 21v-8h2v6h6v2H3zm18 0h-8v-2h6v-6h2v8z"/></svg>
+          <input type="range" id="tileSize" min="160" max="900" step="10" />
+        </label>
+        <button class="icon-btn" id="btnHideEmpty" title="Ocultar quadros sem video"></button>
+        <button class="icon-btn" id="btnFullscreen" title="Tela cheia (F11)"></button>
+        <span id="latency" class="pill">--</span>
+        <button class="icon-btn" id="btnToggleChat" title="Mostrar/ocultar chat"></button>
+      </div>
+    </div>
+
+    <div id="stage" class="stage">
+      <div class="empty-state" id="emptyState">
+        <img src="../assets/logo.png" alt="" />
+        <h2>Entre numa sala pra comecar</h2>
+        <p>Escolha uma sala na esquerda ou crie a sua. Depois e so chamar a galera.</p>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button class="ctrl" id="btnMic"><span class="ci"></span><span class="cl">Microfone</span></button>
+      <button class="ctrl" id="btnDeaf"><span class="ci"></span><span class="cl">Audio</span></button>
+      <button class="ctrl" id="btnCam"><span class="ci"></span><span class="cl">Camera</span></button>
+      <button class="ctrl" id="btnShare"><span class="ci"></span><span class="cl">Tela</span></button>
+      <button class="ctrl" id="btnBoard"><span class="ci"></span><span class="cl">Sons</span></button>
+      <button class="ctrl danger" id="btnLeave"><span class="ci"></span><span class="cl">Sair</span></button>
+    </div>
+  </section>
+
+  <!-- CHAT -->
+  <aside class="chat" id="chatPanel">
+    <div class="chat-head">Chat da sala</div>
+    <div class="chat-log" id="chatLog"></div>
+
+    <div id="dock" class="dock hidden">
+      <div class="dock-head">
+        <div class="dock-tabs">
+          <button class="dock-tab" data-dock="emoji">Emojis</button>
+          <button class="dock-tab" data-dock="figurinhas">Figurinhas</button>
+          <button class="dock-tab" data-dock="gif">GIFs</button>
+        </div>
+        <button class="modal-x" id="dockClose">&times;</button>
+      </div>
+      <div class="dock-body" id="dockBody"></div>
+    </div>
+
+    <div id="chatDrop" class="chat-drop hidden">Solte a imagem para enviar</div>
+
+    <form class="chat-form" id="chatForm">
+      <div class="chat-tools">
+        <button type="button" class="icon-btn" id="btnEmoji" title="Emojis"></button>
+        <button type="button" class="icon-btn" id="btnSticker" title="Figurinhas"></button>
+        <button type="button" class="icon-btn" id="btnGif" title="GIFs">GIF</button>
+        <button type="button" class="icon-btn" id="btnImage" title="Enviar imagem"></button>
+      </div>
+      <input id="chatInput" type="text" maxlength="2000" placeholder="Mensagem..." autocomplete="off" />
+      <button type="submit" class="send-btn" title="Enviar">
+        <svg viewBox="0 0 24 24"><path d="M3 20.5L21 12 3 3.5 3 10l12 2-12 2z"/></svg>
+      </button>
+      <input type="file" id="fileImage" accept="image/*" multiple hidden />
+    </form>
+  </aside>
+</main>
+
+<!-- ================= BARRA DA TELA CHEIA ================= -->
+<div id="fsBar" class="fs-bar hidden">
+  <button class="icon-btn" id="fsMic" title="Microfone"></button>
+  <button class="icon-btn" id="fsDeaf" title="Audio"></button>
+  <button class="icon-btn" id="fsShare" title="Tela"></button>
+  <div class="seg small" id="fsLayoutSeg">
+    <button class="seg-btn" data-layout="grade">Grade</button>
+    <button class="seg-btn" data-layout="foco">Foco</button>
+  </div>
+  <input type="range" id="fsTileSize" min="160" max="900" step="10" title="Tamanho dos quadros" />
+  <button class="icon-btn" id="fsHideEmpty" title="Ocultar quadros sem video"></button>
+  <button class="btn ghost small" id="fsExit">Sair da tela cheia (Esc)</button>
+</div>
+
+<!-- ================= MODAL: ESCOLHER TELA ================= -->
+<div class="modal-back hidden" id="pickerModal">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3>Compartilhar tela</h3>
+      <button class="modal-x" data-close="pickerModal">&times;</button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="screen">Telas</button>
+      <button class="tab" data-tab="window">Janelas</button>
+    </div>
+    <div class="source-grid" id="sourceGrid"></div>
+    <div class="modal-foot">
+      <label class="check">
+        <input type="checkbox" id="shareAudio" checked />
+        <span>Compartilhar o audio do computador</span>
+      </label>
+      <div class="row-end">
+        <label class="check inline">
+          <span>Qualidade</span>
+          <select id="shareQuality">
+            <option value="720">720p 30fps</option>
+            <option value="1080" selected>1080p 30fps</option>
+            <option value="1080-60">1080p 60fps</option>
+            <option value="1440">1440p 30fps</option>
+            <option value="nativo">Nativa (tela inteira, 60fps)</option>
+          </select>
+        </label>
+        <button class="btn primary" id="btnStartShare" disabled>Compartilhar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: PERFIL ================= -->
+<div class="modal-back hidden" id="profileModal">
+  <div class="modal small">
+    <div class="modal-head">
+      <h3 id="profileTitle">Perfil</h3>
+      <button class="modal-x" data-close="profileModal">&times;</button>
+    </div>
+    <div class="modal-body profile-body">
+      <div class="profile-top">
+        <div class="avatar xl" id="profileAvatar">EU</div>
+        <div class="profile-id">
+          <div class="profile-name" id="profileName">Voce</div>
+          <div class="profile-sub" id="profileSub"></div>
+        </div>
+      </div>
+
+      <div id="profileEdit">
+        <label class="field">
+          <span>Nome</span>
+          <input id="profileNameInput" type="text" maxlength="24" autocomplete="off" />
+        </label>
+        <div class="row-gap">
+          <button class="btn ghost" id="btnPickAvatar">Escolher foto</button>
+          <button class="btn ghost" id="btnClearAvatar">Remover foto</button>
+        </div>
+        <input type="file" id="fileAvatar" accept="image/*" hidden />
+      </div>
+
+      <div id="profileView" class="hidden">
+        <label class="field">
+          <span>Volume desta pessoa <b id="peerVolVal">100%</b></span>
+          <input type="range" id="peerVol" min="0" max="200" value="100" />
+        </label>
+        <div id="profileStreams" class="profile-streams"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div></div>
+      <button class="btn primary" id="btnProfileSave">Pronto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: CONFIGURACOES ================= -->
+<div class="modal-back hidden" id="settingsModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Configuracoes</h3>
+      <button class="modal-x" data-close="settingsModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Microfone</span>
+        <select id="selMic"></select>
+      </label>
+      <label class="field">
+        <span>Saida de audio</span>
+        <select id="selSpk"></select>
+      </label>
+      <label class="field">
+        <span>Camera</span>
+        <select id="selCam"></select>
+      </label>
+      <label class="field">
+        <span>Volume de entrada <b id="volInVal">100%</b></span>
+        <input type="range" id="volIn" min="0" max="200" value="100" />
+      </label>
+      <label class="field">
+        <span>Volume geral de saida <b id="volOutVal">100%</b></span>
+        <input type="range" id="volOut" min="0" max="100" value="100" />
+      </label>
+      <div class="mic-test">
+        <span>Teste do microfone</span>
+        <div class="meter"><div class="meter-fill" id="micMeter"></div></div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="optEcho" checked />
+        <span>Cancelamento de eco e ruido</span>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="optSounds" checked />
+        <span>Sons de entrar/sair</span>
+      </label>
+      <label class="switch">
+        <input type="checkbox" id="optTray" />
+        <span>Minimizar para a bandeja ao fechar</span>
+      </label>
+      <label class="field" style="margin-top:12px">
+        <span>Chave da API do Giphy (opcional)</span>
+        <input id="inpGiphy" type="text" placeholder="cole aqui para habilitar a busca de GIFs" autocomplete="off" />
+      </label>
+      <div class="hint">Pegue uma chave gratuita em developers.giphy.com. Sem ela, a aba de GIFs fica desligada.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="btnDisconnect">Desconectar do servidor</button>
+      <button class="btn primary" data-close="settingsModal">Pronto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: SOUNDBOARD ================= -->
+<div class="modal-back hidden" id="boardModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Efeitos sonoros</h3>
+      <button class="modal-x" data-close="boardModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="hint">Toca para todo mundo na sala, mesmo com o microfone mudo. Atalho: teclas 1 a 9.</div>
+      <div id="boardGrid" class="board-grid"></div>
+    </div>
+    <div class="modal-foot">
+      <label class="check inline">
+        <span>Volume <b id="boardVolVal">80%</b></span>
+        <input type="range" id="boardVol" min="0" max="150" value="80" style="width:120px" />
+      </label>
+      <button class="btn primary" id="btnAddSound">Adicionar audio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: NOVA SALA ================= -->
+<div class="modal-back hidden" id="roomModal">
+  <div class="modal small">
+    <div class="modal-head">
+      <h3>Nova sala</h3>
+      <button class="modal-x" data-close="roomModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Nome da sala</span>
+        <input id="inpRoom" type="text" maxlength="32" placeholder="ex: Jogatina" autocomplete="off" />
+      </label>
+    </div>
+    <div class="modal-foot">
+      <div></div>
+      <button class="btn primary" id="btnCreateRoom">Criar e entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= VISUALIZADOR DE IMAGEM ================= -->
+<div class="modal-back hidden" id="lightbox">
+  <img id="lightboxImg" alt="" />
+</div>
+
+<!-- menu de contexto (botao direito) -->
+<div id="ctxMenu" class="ctx hidden"></div>
+
+<div id="toasts" class="toasts"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

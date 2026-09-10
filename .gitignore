@@ -1,0 +1,4 @@
+node_modules/
+dist/
+dados-discordia/
+*.log
