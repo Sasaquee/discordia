@@ -26,10 +26,20 @@
 <!-- ================= TELA DE CONEXAO ================= -->
 <section id="connectScreen" class="connect">
   <div class="connect-bg"></div>
+  <div class="connect-eq" aria-hidden="true">
+    <i style="height:55px;animation-delay:0s"></i><i style="height:84px;animation-delay:-.37s"></i><i style="height:99px;animation-delay:-.74s"></i><i style="height:94px;animation-delay:-1.11s"></i><i style="height:71px;animation-delay:-1.48s"></i><i style="height:68px;animation-delay:-1.85s"></i>
+    <i style="height:84px;animation-delay:-2.22s"></i><i style="height:83px;animation-delay:-.19s"></i><i style="height:61px;animation-delay:-.56s"></i><i style="height:29px;animation-delay:-.93s"></i><i style="height:58px;animation-delay:-1.30s"></i><i style="height:78px;animation-delay:-1.67s"></i>
+    <i style="height:80px;animation-delay:-2.04s"></i><i style="height:64px;animation-delay:-.01s"></i><i style="height:71px;animation-delay:-.38s"></i><i style="height:94px;animation-delay:-.75s"></i><i style="height:99px;animation-delay:-1.12s"></i><i style="height:84px;animation-delay:-1.49s"></i>
+    <i style="height:58px;animation-delay:-1.86s"></i><i style="height:80px;animation-delay:-2.23s"></i><i style="height:87px;animation-delay:-.20s"></i><i style="height:75px;animation-delay:-.57s"></i><i style="height:46px;animation-delay:-.94s"></i><i style="height:42px;animation-delay:-1.31s"></i>
+    <i style="height:69px;animation-delay:-1.68s"></i><i style="height:80px;animation-delay:-2.05s"></i><i style="height:72px;animation-delay:-.02s"></i><i style="height:55px;animation-delay:-.39s"></i><i style="height:84px;animation-delay:-.76s"></i><i style="height:99px;animation-delay:-1.13s"></i>
+    <i style="height:93px;animation-delay:-1.50s"></i><i style="height:70px;animation-delay:-1.87s"></i><i style="height:72px;animation-delay:-2.24s"></i><i style="height:87px;animation-delay:-.21s"></i><i style="height:84px;animation-delay:-.58s"></i><i style="height:62px;animation-delay:-.95s"></i>
+    <i style="height:34px;animation-delay:-1.32s"></i><i style="height:57px;animation-delay:-1.69s"></i><i style="height:76px;animation-delay:-2.06s"></i><i style="height:77px;animation-delay:-.03s"></i><i style="height:61px;animation-delay:-.40s"></i><i style="height:71px;animation-delay:-.77s"></i>
+    <i style="height:94px;animation-delay:-1.14s"></i><i style="height:99px;animation-delay:-1.51s"></i>
+  </div>
   <div class="connect-card">
     <img src="../assets/logo.png" class="connect-logo" alt="" />
     <img src="../assets/wordmark.png" class="connect-wordmark" alt="Discordia" />
-    <p class="sub">Voz, video e tela compartilhada com audio. Simples assim.</p>
+    <p class="sub">Voz, video e a tela com o som do PC. Direto de um computador para o outro, sem nuvem e sem conta.</p>
 
     <label class="field">
       <span>Seu nome</span>
@@ -106,12 +116,14 @@
           <button class="seg-btn" data-layout="grade" title="Tudo em grade">Grade</button>
           <button class="seg-btn" data-layout="foco" title="Um grande + miniaturas">Foco</button>
         </div>
-        <label class="size-ctl" title="Tamanho dos quadros">
-          <svg viewBox="0 0 24 24"><path d="M3 3h8v2H5v6H3V3zm18 0v8h-2V5h-6V3h8zM3 21v-8h2v6h6v2H3zm18 0h-8v-2h6v-6h2v8z"/></svg>
-          <input type="range" id="tileSize" min="160" max="900" step="10" />
-        </label>
-        <button class="icon-btn" id="btnHideEmpty" title="Ocultar quadros sem video"></button>
-        <button class="icon-btn" id="btnFullscreen" title="Tela cheia (F11)"></button>
+        <div class="tool-group">
+          <label class="size-ctl" title="Tamanho dos quadros">
+            <svg viewBox="0 0 24 24"><path d="M3 3h8v2H5v6H3V3zm18 0v8h-2V5h-6V3h8zM3 21v-8h2v6h6v2H3zm18 0h-8v-2h6v-6h2v8z"/></svg>
+            <input type="range" id="tileSize" min="160" max="900" step="10" />
+          </label>
+          <button class="icon-btn" id="btnHideEmpty" title="Ocultar quadros sem video"></button>
+          <button class="icon-btn" id="btnFullscreen" title="Tela cheia (F11)"></button>
+        </div>
         <span id="latency" class="pill">--</span>
         <button class="icon-btn" id="btnToggleChat" title="Mostrar/ocultar chat"></button>
       </div>
@@ -122,16 +134,23 @@
         <img src="../assets/logo.png" alt="" />
         <h2>Entre numa sala pra comecar</h2>
         <p>Escolha uma sala na esquerda ou crie a sua. Depois e so chamar a galera.</p>
+        <div class="empty-keys">
+          <span><b>Ctrl+Shift+M</b> mudo</span>
+          <span><b>Ctrl+Shift+D</b> sem som</span>
+          <span><b>F11</b> tela cheia</span>
+        </div>
       </div>
     </div>
 
     <div class="controls" id="controls">
-      <button class="ctrl" id="btnMic"><span class="ci"></span><span class="cl">Microfone</span></button>
-      <button class="ctrl" id="btnDeaf"><span class="ci"></span><span class="cl">Audio</span></button>
-      <button class="ctrl" id="btnCam"><span class="ci"></span><span class="cl">Camera</span></button>
-      <button class="ctrl" id="btnShare"><span class="ci"></span><span class="cl">Tela</span></button>
-      <button class="ctrl" id="btnBoard"><span class="ci"></span><span class="cl">Sons</span></button>
-      <button class="ctrl danger" id="btnLeave"><span class="ci"></span><span class="cl">Sair</span></button>
+      <div class="ctrl-dock">
+        <button class="ctrl" id="btnMic"><span class="ci"></span><span class="cl">Microfone</span></button>
+        <button class="ctrl" id="btnDeaf"><span class="ci"></span><span class="cl">Audio</span></button>
+        <button class="ctrl" id="btnCam"><span class="ci"></span><span class="cl">Camera</span></button>
+        <button class="ctrl" id="btnShare"><span class="ci"></span><span class="cl">Tela</span></button>
+        <button class="ctrl" id="btnBoard"><span class="ci"></span><span class="cl">Sons</span></button>
+        <button class="ctrl danger" id="btnLeave"><span class="ci"></span><span class="cl">Sair</span></button>
+      </div>
     </div>
   </section>
 
