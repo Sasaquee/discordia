@@ -117,7 +117,10 @@
     </div>
 
     <div class="user-panel">
-      <button class="avatar sm" id="selfAvatar" title="Editar perfil">EU</button>
+      <span class="av-status">
+        <button class="avatar sm" id="selfAvatar" title="Editar perfil">EU</button>
+        <span class="ponto" id="selfPonto" data-status="disponivel"></span>
+      </span>
       <div class="user-meta">
         <div class="user-name" id="selfName">Voce</div>
         <div class="user-state" id="selfState">Disponivel</div>
@@ -519,6 +522,35 @@
 <!-- ================= VISUALIZADOR DE IMAGEM ================= -->
 <div class="modal-back hidden" id="lightbox">
   <img id="lightboxImg" alt="" />
+</div>
+
+<!-- ================= MINI PERFIL (clique na pessoa) ================= -->
+<div id="miniPerfil" class="mini hidden">
+  <div class="mini-faixa" id="miniFaixa" data-faixa="marca"></div>
+  <div class="mini-topo">
+    <span class="av-status mini-av">
+      <div class="avatar" id="miniAvatar">EU</div>
+      <span class="ponto" id="miniPonto" data-status="disponivel"></span>
+    </span>
+    <div class="mini-acoes" id="miniAcoes"></div>
+  </div>
+  <div class="mini-corpo">
+    <!-- o nick e o caminho para o perfil completo, como no Discord -->
+    <button class="mini-nome" id="miniNome" title="Ver o perfil completo">
+      <span id="miniNomeTexto">Nome</span>
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <div class="mini-linha">
+      <span id="miniStatus">Disponivel</span>
+      <span class="cartao-pronomes hidden" id="miniPronomes"></span>
+    </div>
+    <div class="mini-bio hidden" id="miniBio"></div>
+    <div class="cartao-tags" id="miniTags"></div>
+    <div class="mini-vol hidden" id="miniVolBox">
+      <div class="mini-vol-topo"><span>Volume</span><b id="miniVolVal">100%</b></div>
+      <input type="range" id="miniVol" min="0" max="200" step="5" value="100" />
+    </div>
+  </div>
 </div>
 
 <!-- menu de contexto (botao direito) -->

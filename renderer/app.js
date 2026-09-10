@@ -121,6 +121,17 @@ function avatarOf(id) {
   const p = S.peers.get(id);
   return (p && p.avatar) || '';
 }
+/** Avatar com o pontinho de status encostado na borda. */
+function avatarComStatus(nome, id, cls, status) {
+  const wrap = el('span', 'av-status');
+  wrap.appendChild(avatarEl(nome, id, cls));
+  const ponto = el('span', 'ponto');
+  ponto.dataset.status = status || 'disponivel';
+  ponto.title = STATUS_NOME[status] || 'Disponivel';
+  wrap.appendChild(ponto);
+  return wrap;
+}
+
 function avatarEl(name, id, cls) {
   const h = hueOf(id || name);
   const a = el('div', 'avatar' + (cls ? ' ' + cls : ''));
@@ -998,13 +1009,11 @@ function renderRooms() {
         const row = el('div', 'room-user');
         row.dataset.speak = u.id;
         row.style.cursor = 'pointer';
-        row.onclick = () => openProfile(u.id);
+        row.onclick = (e) => { e.stopPropagation(); abrirMiniPerfil(u.id, e.clientX + 14, e.clientY); };
         row.oncontextmenu = (e) => { e.preventDefault(); openPeerMenu(u.id, e.clientX, e.clientY); };
         if (!isSelf && volumeOf(u.id) === 0) row.style.opacity = '.55';
-        const avatarPessoa = avatarEl(u.name, u.id, 'sm');
-        // o pontinho de status vive no proprio avatar, como no cartao
-        avatarPessoa.dataset.status = (isSelf ? (S.settings.status || 'disponivel') : (u.status || 'disponivel'));
-        row.appendChild(avatarPessoa);
+        const st = isSelf ? (S.settings.status || 'disponivel') : (u.status || 'disponivel');
+        row.appendChild(avatarComStatus(u.name, u.id, 'sm', st));
         const nm = el('span', null);
         nm.textContent = u.name + (isSelf ? ' (voce)' : '');
         row.appendChild(nm);
@@ -1101,7 +1110,7 @@ function personTile(person) {
   node.appendChild(lbl);
   if (person.you) node.appendChild(el('div', 'tile-badge you', 'voce'));
   if (person.speaking) node.classList.add('speaking');
-  node.onclick = () => openProfile(person.id);
+  node.onclick = (e) => { e.stopPropagation(); abrirMiniPerfil(person.id, e.clientX + 14, e.clientY); };
   node.oncontextmenu = (e) => { e.preventDefault(); openPeerMenu(person.id, e.clientX, e.clientY); };
   return node;
 }
@@ -1362,8 +1371,11 @@ function updateControlUI() {
   const meuStatus = STATUS_NOME[S.settings.status || 'disponivel'] || 'Disponivel';
   $('selfState').textContent = !S.room ? meuStatus
     : S.deafened ? 'Sem audio' : S.muted ? 'Microfone mudo' : 'Em ' + S.room;
-  const av = $('selfAvatar');
-  if (av) av.dataset.status = S.settings.status || 'disponivel';
+  const ponto = $('selfPonto');
+  if (ponto) {
+    ponto.dataset.status = S.settings.status || 'disponivel';
+    ponto.title = STATUS_NOME[S.settings.status || 'disponivel'] || 'Disponivel';
+  }
 }
 
 // ---------------------------------------------------------
@@ -2057,6 +2069,7 @@ async function prepararImagem(file, { max = 1280, qualidade = 0.85, limiteGif = 
 // Menu de contexto (botao direito nas pessoas)
 // ---------------------------------------------------------
 function closeCtxMenu() {
+  fecharMini();
   const m = $('ctxMenu');
   m.classList.add('hidden');
   m.innerHTML = '';
@@ -2275,6 +2288,96 @@ function openPeerMenu(id, x, y) {
 // Perfil (o meu para editar, o dos outros para ver)
 // ---------------------------------------------------------
 let perfilAberto = null;
+
+// ---------------------------------------------------------
+// Mini perfil: o cartao rapido que abre ao clicar na pessoa.
+// O nick dentro dele leva ao perfil completo.
+// ---------------------------------------------------------
+function fecharMini() {
+  $('miniPerfil').classList.add('hidden');
+}
+
+function abrirMiniPerfil(id, x, y) {
+  const eu = id === S.selfId;
+  const p = eu ? null : S.peers.get(id);
+  if (!eu && !p) return;
+
+  const nome = eu ? (S.name || 'Voce') : p.name;
+  const faixa = eu ? (S.settings.faixa || 'marca') : (p.faixa || 'marca');
+  const status = eu ? (S.settings.status || 'disponivel') : (p.status || 'disponivel');
+  const bio = eu ? (S.settings.bio || '') : (p.bio || '');
+  const pron = eu ? (S.settings.pronomes || '') : (p.pronomes || '');
+
+  $('miniFaixa').dataset.faixa = faixa;
+  const av = avatarEl(nome, id, '');
+  av.id = 'miniAvatar';
+  $('miniAvatar').replaceWith(av);
+  $('miniPonto').dataset.status = status;
+  $('miniNomeTexto').textContent = nome;
+  $('miniStatus').textContent = STATUS_NOME[status] || 'Disponivel';
+
+  const nPron = $('miniPronomes');
+  nPron.textContent = pron;
+  nPron.classList.toggle('hidden', !pron);
+
+  const nBio = $('miniBio');
+  nBio.textContent = bio;
+  nBio.classList.toggle('hidden', !bio);
+
+  const tags = $('miniTags');
+  tags.innerHTML = '';
+  const nota = eu ? '' : notaDe(p.name);
+  if (eu) {
+    if (S.muted || S.deafened) tags.appendChild(tagPerfil('microfone mudo', 'alerta'));
+    if (S.sharing) tags.appendChild(tagPerfil('compartilhando a tela', 'ativo'));
+  } else {
+    if (p.entrouEm) tags.appendChild(tagPerfil(desdeQuando(p.entrouEm)));
+    if (p.muted) tags.appendChild(tagPerfil('microfone mudo', 'alerta'));
+    if (p.sharing) tags.appendChild(tagPerfil('compartilhando a tela', 'ativo'));
+    if (p.cam) tags.appendChild(tagPerfil('camera ligada', 'ativo'));
+    if (nota) tags.appendChild(tagPerfil(nota));
+  }
+
+  // acoes rapidas: o que se quer fazer com a pessoa sem abrir o perfil inteiro
+  const acoes = $('miniAcoes');
+  acoes.innerHTML = '';
+  if (!eu) {
+    const mudo = volumeOf(id) === 0;
+    const bMudo = el('button', 'mini-acao' + (mudo ? ' on' : ''), mudo ? ICON.spkOff : ICON.spk);
+    bMudo.title = mudo ? 'Reativar som desta pessoa' : 'Silenciar so pra mim';
+    bMudo.onclick = (e) => {
+      e.stopPropagation();
+      setVolumeOf(id, mudo ? 100 : 0);
+      renderRooms();
+      abrirMiniPerfil(id, x, y);
+    };
+    acoes.appendChild(bMudo);
+  } else {
+    const bEditar = el('button', 'mini-acao', ICON.lapis);
+    bEditar.title = 'Editar meu perfil';
+    bEditar.onclick = (e) => { e.stopPropagation(); fecharMini(); openProfile(id); };
+    acoes.appendChild(bEditar);
+  }
+
+  const volBox = $('miniVolBox');
+  volBox.classList.toggle('hidden', eu);
+  if (!eu) {
+    $('miniVol').value = volumeOf(id);
+    $('miniVolVal').textContent = volumeOf(id) + '%';
+    $('miniVol').oninput = () => {
+      $('miniVolVal').textContent = $('miniVol').value + '%';
+      setVolumeOf(id, Number($('miniVol').value));
+    };
+  }
+
+  $('miniNome').onclick = () => { fecharMini(); openProfile(id); };
+
+  const m = $('miniPerfil');
+  m.classList.remove('hidden');
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 10)) + 'px';
+  m.style.top = Math.max(44, Math.min(y - 40, window.innerHeight - r.height - 12)) + 'px';
+}
 
 function tagPerfil(texto, tipo) {
   const t = el('span', 'cartao-tag' + (tipo ? ' ' + tipo : ''));
@@ -2953,7 +3056,7 @@ function wireUI() {
   $('fsShare').onclick = openPicker;
 
   // ----- perfil -----
-  $('selfAvatar').onclick = () => openProfile(S.selfId);
+  $('selfAvatar').onclick = (e) => { e.stopPropagation(); abrirMiniPerfil(S.selfId, e.clientX + 14, e.clientY); };
   $('btnProfileSave').onclick = salvarPerfil;
   $('btnPickAvatar').onclick = () => $('fileAvatar').click();
   $('fileAvatar').onchange = (e) => {
@@ -3049,6 +3152,7 @@ function wireUI() {
   $('inpGiphy').onchange = (e) => saveSettings({ giphyKey: e.target.value.trim() });
 
   // ----- menu de contexto -----
+  $('miniPerfil').onclick = (e) => e.stopPropagation();
   window.addEventListener('click', closeCtxMenu);
   window.addEventListener('blur', closeCtxMenu);
   window.addEventListener('contextmenu', (e) => {
