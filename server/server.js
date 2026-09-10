@@ -6,6 +6,7 @@
 const http = require('http');
 const fsp = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 const DEFAULT_PORT = 45070; // 7070 costuma estar ocupada (AnyDesk)
@@ -34,8 +35,21 @@ function localIPs() {
   return out;
 }
 
-function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', storeDir = null } = {}) {
+function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', storeDir = null, senha = null } = {}) {
   const MAX_HISTORICO = 200;   // mensagens guardadas por sala
+  const TEMPO_AUTH = 15000;    // tempo para mandar a senha antes de cair
+  const MAX_TENTATIVAS = 3;
+
+  /**
+   * Na LAN ou dentro de uma VPN, quem alcanca a porta entra - e de proposito.
+   * Exposto na internet isso nao serve: com senha configurada, o socket nao ve
+   * sala nenhuma nem consegue falar antes de acertar.
+   */
+  const exigeSenha = !!(senha && String(senha).length);
+  const digest = (s) => crypto.createHash('sha256').update(String(s)).digest();
+  const senhaHash = exigeSenha ? digest(senha) : null;
+  // hash dos dois lados: comparacao de tamanho fixo, sem vazar nada pelo tempo
+  const senhaConfere = (tentativa) => exigeSenha && crypto.timingSafeEqual(digest(tentativa), senhaHash);
   const arquivo = (nome) => (storeDir ? require('path').join(storeDir, nome) : null);
   const storePath = arquivo('salas.json');
   const historyPath = arquivo('historico.json');
@@ -110,7 +124,13 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
   const http_ = http.createServer((req, res) => {
     if (req.url === '/health' || req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({
+      // com senha o servidor esta exposto: nome das salas e de quem esta online
+      // nao saem para quem so abriu a URL no navegador
+      res.end(JSON.stringify(exigeSenha ? {
+        app: 'discordia',
+        protegido: true,
+        online: clients.size,
+      } : {
         app: 'discordia',
         serverName,
         online: clients.size,
@@ -159,7 +179,9 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
 
   const broadcastRooms = () => {
     const snap = roomsSnapshot();
-    for (const ws of clients.values()) send(ws, { type: 'rooms', rooms: snap, serverName });
+    for (const ws of clients.values()) {
+      if (ws.autenticado) send(ws, { type: 'rooms', rooms: snap, serverName });
+    }
   };
 
   const leaveRoom = (ws) => {
@@ -181,10 +203,19 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
     ws.name = 'Usuario';
     ws.room = null;
     ws.alive = true;
+    ws.autenticado = !exigeSenha;
+    ws.tentativas = 0;
     clients.set(ws.id, ws);
 
-    send(ws, { type: 'hello', id: ws.id, serverName });
-    broadcastRooms();
+    send(ws, { type: 'hello', id: ws.id, serverName, precisaSenha: exigeSenha });
+    if (exigeSenha) {
+      // quem fica calado na porta nao ocupa o servidor para sempre
+      ws.prazoAuth = setTimeout(() => {
+        if (!ws.autenticado) { send(ws, { type: 'auth-fail', motivo: 'tempo' }); ws.close(4001, 'sem senha'); }
+      }, TEMPO_AUTH);
+    } else {
+      broadcastRooms();
+    }
 
     ws.on('pong', () => { ws.alive = true; });
 
@@ -192,6 +223,22 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
       let msg;
       try { msg = JSON.parse(buf.toString()); } catch { return; }
       if (!msg || typeof msg.type !== 'string') return;
+
+      // antes de acertar a senha o socket so pode fazer uma coisa: tentar a senha
+      if (!ws.autenticado) {
+        if (msg.type !== 'auth') return;
+        if (!senhaConfere(String(msg.senha || ''))) {
+          ws.tentativas++;
+          send(ws, { type: 'auth-fail', motivo: 'senha' });
+          if (ws.tentativas >= MAX_TENTATIVAS) ws.close(4003, 'senha incorreta');
+          return;
+        }
+        ws.autenticado = true;
+        clearTimeout(ws.prazoAuth);
+        send(ws, { type: 'auth-ok' });
+        broadcastRooms();
+        return;
+      }
 
       switch (msg.type) {
         case 'identify': {
@@ -353,6 +400,7 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
     });
 
     ws.on('close', () => {
+      clearTimeout(ws.prazoAuth);
       leaveRoom(ws);
       clients.delete(ws.id);
       broadcastRooms();
@@ -391,11 +439,19 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
 module.exports = { createServer, DEFAULT_PORT, localIPs };
 
 if (require.main === module) {
+  // PORT vem do provedor quando roda hospedado; o resto tem padrao razoavel
   const port = Number(process.argv[2] || process.env.PORT || DEFAULT_PORT);
-  const srv = createServer({ port, storeDir: require('path').join(process.cwd(), 'dados-discordia') });
+  const senha = process.env.DISCORDIA_SENHA || null;
+  const srv = createServer({
+    port,
+    senha,
+    serverName: process.env.DISCORDIA_NOME || 'Servidor Discordia',
+    storeDir: process.env.DISCORDIA_DADOS || require('path').join(process.cwd(), 'dados-discordia'),
+  });
   srv.listen().then(({ addresses }) => {
     console.log('== Discordia - servidor de sinalizacao ==');
     console.log('Porta:', port);
+    console.log('Senha:', senha ? 'ligada' : 'DESLIGADA (so use assim em LAN ou VPN)');
     console.log('Local:  ws://localhost:' + port);
     for (const ip of addresses) {
       console.log((ip.vpn ? 'VPN:    ' : 'Rede:   ') + 'ws://' + ip.address + ':' + port + '   (' + ip.iface + ')');
