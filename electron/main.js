@@ -292,6 +292,9 @@ function ligarAtualizacoes() {
 
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
+  // fora do app instalado o updater nao checa nada sem isto: e o que permite
+  // testar o caminho inteiro em desenvolvimento, com o dev-app-update.yml
+  if (!app.isPackaged) updater.forceDevUpdateConfig = true;
   const avisar = (canal, dados) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(canal, dados);
   };
