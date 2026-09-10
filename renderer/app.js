@@ -208,6 +208,8 @@ async function loadSettings() {
   S.name = S.settings.name || '';
   $('inpName').value = S.settings.name || '';
   $('inpServer').value = S.settings.server || 'ws://localhost:45070';
+  S.senha = S.settings.senha || '';
+  $('inpSenha').value = S.senha;
   $('volIn').value = S.settings.volIn;
   $('volOut').value = S.settings.volOut;
   $('volInVal').textContent = S.settings.volIn + '%';
@@ -367,19 +369,48 @@ function connect(url, { silent = false } = {}) {
       reject(new Error('tempo esgotado'));
     }, 8000);
 
+    // servidor exposto na internet pede senha: so consideramos conectado depois
+    // que ela passa, senao o app abriria numa lista de salas que nunca vem
+    let liberado = false;
+    const identificar = () => send({ type: 'identify', name: S.name, avatar: S.settings.avatar || '' });
+
     ws.onopen = () => {
-      clearTimeout(timer);
       S.ws = ws;
       S.serverUrl = url;
       S.connected = true;
       S.reconnectTries = 0;
-      send({ type: 'identify', name: S.name, avatar: S.settings.avatar || '' });
+      identificar();
       setStatus('conectado', 'on');
-      resolve(ws);
     };
     ws.onmessage = (ev) => {
       let msg;
       try { msg = JSON.parse(ev.data); } catch { return; }
+
+      if (!liberado) {
+        if (msg.type === 'hello') {
+          handleMessage(msg);
+          if (msg.precisaSenha) { send({ type: 'auth', senha: S.senha || '' }); return; }
+          liberado = true;
+          clearTimeout(timer);
+          resolve(ws);
+          return;
+        }
+        if (msg.type === 'auth-ok') {
+          liberado = true;
+          clearTimeout(timer);
+          identificar();   // o primeiro identify foi antes da senha passar
+          resolve(ws);
+          return;
+        }
+        if (msg.type === 'auth-fail') {
+          clearTimeout(timer);
+          const e = new Error(msg.motivo === 'tempo' ? 'tempo' : 'senha');
+          e.auth = true;
+          try { ws.close(); } catch {}
+          reject(e);
+          return;
+        }
+      }
       handleMessage(msg);
     };
     ws.onerror = () => { clearTimeout(timer); };
@@ -1657,7 +1688,8 @@ async function doConnect(url) {
   const name = ($('inpName').value || '').trim();
   if (!name) { setConnectMsg('Escolhe um nome primeiro.', 'err'); $('inpName').focus(); return false; }
   S.name = name;
-  saveSettings({ name, server: url });
+  S.senha = $('inpSenha').value || '';
+  saveSettings({ name, server: url, senha: S.senha });
 
   setConnectMsg('Conectando...');
   const mic = await startMic();
@@ -1666,7 +1698,15 @@ async function doConnect(url) {
   try {
     await connect(url, { silent: true });
   } catch (err) {
-    setConnectMsg('Nao consegui conectar em ' + url + '. Confere o endereco e se o servidor esta ligado.', 'err');
+    if (err.auth) {
+      setConnectMsg(err.message === 'tempo'
+        ? 'Esse servidor pede senha e o tempo para responder acabou. Tenta de novo.'
+        : 'Senha incorreta para esse servidor.', 'err');
+      $('inpSenha').focus();
+      $('inpSenha').select();
+    } else {
+      setConnectMsg('Nao consegui conectar em ' + url + '. Confere o endereco e se o servidor esta ligado.', 'err');
+    }
     return false;
   }
   setConnectMsg('');
@@ -2343,6 +2383,7 @@ function wireUI() {
   };
 
   $('inpServer').onkeydown = (e) => { if (e.key === 'Enter') $('btnConnect').click(); };
+  $("inpSenha").onkeydown = (e) => { if (e.key === "Enter") $("btnConnect").click(); };
   $('inpName').onkeydown = (e) => { if (e.key === 'Enter') $('btnConnect').click(); };
 
   // controles da chamada
