@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, Menu, Tray, nativeImage, dialog, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, Menu, Tray, nativeImage, dialog, screen, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile, spawn } = require('child_process');
@@ -363,22 +363,67 @@ ipcMain.handle('firewall:status', async () => {
   return { supported: true, allowed: r.out === 'sim', blocked: r.out === 'bloqueado' };
 });
 
-/** Cria as regras de entrada. Abre o UAC: quem decide e o usuario. */
+/**
+ * Libera a entrada no firewall do Windows.
+ *
+ * Antes isso era montado como um -EncodedCommand com -ErrorAction SilentlyContinue:
+ * quando dava errado, o erro sumia e o app so dizia "nao foi possivel". Agora o
+ * trabalho vai num arquivo .ps1 temporario que grava o resultado num log, e o log
+ * volta para a interface. Usamos netsh: nao precisa carregar o modulo NetSecurity
+ * (que demora e falha em algumas instalacoes) e o retorno e simples.
+ */
 ipcMain.handle('firewall:allow', async (_e, { port } = {}) => {
   if (process.platform !== 'win32') return { ok: false, error: 'Somente no Windows.' };
   const p = Number(port) || DEFAULT_PORT;
-  const exe = process.execPath.replace(/'/g, "''");
-  const inner = [
-    // tira bloqueios antigos: no Windows, Block sempre vence Allow
-    `Get-NetFirewallRule -DisplayName '${FW_RULE}*' -ErrorAction SilentlyContinue | Where-Object { $_.Action -eq 'Block' } | Remove-NetFirewallRule -ErrorAction SilentlyContinue`,
-    `New-NetFirewallRule -DisplayName '${FW_RULE}' -Direction Inbound -Action Allow -Program '${exe}' -Profile Any -ErrorAction SilentlyContinue`,
-    `New-NetFirewallRule -DisplayName '${FW_RULE} (porta ${p})' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${p} -Profile Any -ErrorAction SilentlyContinue`,
-  ].join('; ');
-  const encoded = Buffer.from(inner, 'utf16le').toString('base64');
-  const r = await ps(`Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-EncodedCommand','${encoded}'`);
-  if (!r.ok) return { ok: false, error: 'Permissao de administrador negada.' };
+  const exe = process.execPath;
+  const tmp = app.getPath('temp');
+  const script = path.join(tmp, 'discordia-firewall.ps1');
+  const log = path.join(tmp, 'discordia-firewall.log');
+
+  const conteudo = [
+    '$ErrorActionPreference = "Stop"',
+    'try {',
+    // tira regras antigas com o mesmo nome, inclusive as de BLOQUEIO que o Windows
+    // cria quando alguem clica "Cancelar" no aviso de rede (Block vence Allow)
+    `  netsh advfirewall firewall delete rule name="${FW_RULE}" | Out-Null`,
+    `  netsh advfirewall firewall delete rule name="${FW_RULE} (porta ${p})" | Out-Null`,
+    `  $a = netsh advfirewall firewall add rule name="${FW_RULE}" dir=in action=allow program="${exe}" enable=yes profile=any`,
+    `  $b = netsh advfirewall firewall add rule name="${FW_RULE} (porta ${p})" dir=in action=allow protocol=TCP localport=${p} enable=yes profile=any`,
+    '  "OK: $a $b" | Out-File -FilePath "' + log + '" -Encoding utf8',
+    '} catch {',
+    '  "ERRO: $($_.Exception.Message)" | Out-File -FilePath "' + log + '" -Encoding utf8',
+    '}',
+  ].join('\r\n');
+
+  try {
+    fs.writeFileSync(script, conteudo, 'utf8');
+    if (fs.existsSync(log)) fs.unlinkSync(log);
+  } catch (err) {
+    return { ok: false, error: 'Nao consegui preparar o script: ' + err.message };
+  }
+
+  const r = await ps(
+    `Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait ` +
+    `-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','"${script}"'`
+  );
+
+  if (!r.ok) {
+    // o caso comum e o usuario clicar "Nao" na janela do Windows
+    return { ok: false, error: 'O Windows nao autorizou a mudanca. Clique em "Sim" na janela de permissao.' };
+  }
+
+  let saida = '';
+  try { saida = fs.readFileSync(log, 'utf8').trim(); } catch {}
+  try { fs.unlinkSync(script); } catch {}
+
   const check = await ps(FW_QUERY);
-  return { ok: check.out === 'sim' };
+  if (check.out === 'sim') return { ok: true };
+
+  if (saida.startsWith('ERRO:')) return { ok: false, error: saida.slice(5).trim() };
+  return {
+    ok: false,
+    error: 'As regras nao apareceram no firewall. Resposta do Windows: ' + (saida || 'nenhuma'),
+  };
 });
 
 ipcMain.handle('app:info', () => ({
@@ -463,6 +508,13 @@ ipcMain.handle('lib:remove', (_e, { kind, id } = {}) => {
     if (path.dirname(full) === dir && fs.existsSync(full)) fs.unlinkSync(full);
     return { ok: true, items: libList(kind) };
   } catch { return { ok: false }; }
+});
+
+// A API do navegador (navigator.clipboard) depende de permissao e falha calada aqui;
+// pelo processo principal sempre funciona.
+ipcMain.handle('clipboard:write', (_e, texto) => {
+  clipboard.writeText(String(texto == null ? '' : texto));
+  return true;
 });
 
 ipcMain.handle('window:fullscreen', (_e, on) => {

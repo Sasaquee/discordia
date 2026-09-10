@@ -146,7 +146,7 @@ dele é o mix do dispositivo inteiro). O cancelador tem dois estágios:
    abaixa; onde não, é som do jogo e passa.
 
 Medido em `npm run testar-eco` (banco de testes offline, sem precisar abrir o app):
-**48 dB de redução do eco com 1 dB de perda no áudio do jogo.**
+**71 dB de redução do eco com 1,7 dB de perda no áudio do jogo.**
 
 Detalhes que quebram se mexer sem cuidado:
 
@@ -178,6 +178,24 @@ qualquer mudança de estado (alguém mutou) reconstruía tudo.
 janela na `workArea` do monitor. Em alguns PCs a janela maximizada fica maior que a área
 útil e a barra de tarefas cobre a parte de baixo do app.
 
+**7f. Copiar para a área de transferência é pelo processo principal.**
+`navigator.clipboard.writeText()` precisa da permissão `clipboard-sanitized-write`, que
+o handler de permissões do app nega — e a promessa rejeitada era engolida por um
+`catch {}`, então o botão "copiar" não fazia nada e não avisava. Agora vai por IPC
+(`API.copiar`), usando o módulo `clipboard` do Electron, que não depende de permissão.
+
+**7g. Firewall: script em arquivo, não `-EncodedCommand`.** A versão antiga montava um
+comando codificado com `-ErrorAction SilentlyContinue`: quando falhava, o motivo sumia e
+a interface só dizia "não foi possível". Agora o trabalho vai num `.ps1` temporário que
+grava o resultado num log, o log volta para a interface, e usamos `netsh advfirewall`
+(não precisa carregar o módulo NetSecurity, que é lento e falha em algumas instalações).
+Se o usuário recusar o UAC, a mensagem diz isso.
+
+**7h. Teto de banda alto de propósito.** Os presets de qualidade agora vão de 5 a
+30 Mbps (eram 2,5 a 12). WebRTC só usa o que a rede aguenta — o teto é um limite, não
+um piso. Com teto baixo o codificador borra a imagem para caber, que era a causa da
+tela pixelada. Junto: `scaleResolutionDownBy = 1` (nunca reduzir a resolução) e
+`degradationPreference = 'balanced'` (antes `maintain-framerate`, que esmagava a nitidez).
 **8. Ajustes de WebRTC para VPN** (topo do `main.js`): desligar
 `WebRtcHideLocalIpsWithMdns` e usar `webrtc-ip-handling-policy=default`. Sem isso, dentro
 de uma VPN de LAN o chat conecta mas voz e tela não passam — os candidatos ICE saem

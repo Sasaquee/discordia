@@ -206,6 +206,8 @@ function saidaAudio() {
 async function loadSettings() {
   const saved = await API.getSettings();
   S.settings = { ...S.settings, ...saved };
+  // o modo Foco saiu da barra: quem tinha salvo volta para o automatico
+  if (S.settings.layout === 'foco') S.settings.layout = 'auto';
   S.name = S.settings.name || '';
   $('inpName').value = S.settings.name || '';
   $('inpServer').value = S.settings.server || 'ws://localhost:45070';
@@ -1429,12 +1431,15 @@ async function startShare() {
   // So limitamos a ALTURA. Fixar largura+altura faz o Chromium recortar quando a
   // proporcao do monitor e diferente (ultrawide, 16:10) - era o "nao pega a tela toda".
   const preset = {
-    '720': { h: 720, fps: 30, bitrate: 2_500_000 },
-    '1080': { h: 1080, fps: 30, bitrate: 4_000_000 },
-    '1080-60': { h: 1080, fps: 60, bitrate: 6_000_000 },
-    '1440': { h: 1440, fps: 30, bitrate: 8_000_000 },
-    'nativo': { h: 0, fps: 60, bitrate: 12_000_000 },
-  }[q] || { h: 1080, fps: 30, bitrate: 4_000_000 };
+    // Teto de banda alto de proposito: numa LAN ou VPN sobra banda, e o WebRTC so
+    // usa o que a rede aguenta. Com teto baixo o codificador borra a imagem para
+    // caber - era a causa da tela pixelada.
+    '720': { h: 720, fps: 30, bitrate: 5_000_000 },
+    '1080': { h: 1080, fps: 30, bitrate: 10_000_000 },
+    '1080-60': { h: 1080, fps: 60, bitrate: 14_000_000 },
+    '1440': { h: 1440, fps: 30, bitrate: 20_000_000 },
+    'nativo': { h: 0, fps: 60, bitrate: 30_000_000 },
+  }[q] || { h: 1080, fps: 30, bitrate: 10_000_000 };
 
   $('pickerModal').classList.add('hidden');
   try {
@@ -1478,8 +1483,11 @@ async function startShare() {
           if (t.kind === 'video') {
             par.encodings[0].maxBitrate = preset.bitrate;
             par.encodings[0].maxFramerate = preset.fps;
+            par.encodings[0].scaleResolutionDownBy = 1;   // nunca reduzir a resolucao
             par.encodings[0].networkPriority = 'high';
-            par.degradationPreference = 'maintain-framerate';
+            // 'balanced': quando a rede aperta, cede um pouco dos dois lados em vez
+            // de esmagar a resolucao (borrado) ou travar os quadros
+            par.degradationPreference = 'balanced';
           } else {
             par.encodings[0].maxBitrate = 160_000; // audio de midia merece folga
           }
@@ -1745,7 +1753,7 @@ async function abrirConvite() {
       const copiar = document.createElement('button');
       copiar.textContent = 'copiar';
       copiar.onclick = async () => {
-        try { await navigator.clipboard.writeText(url); copiar.textContent = 'copiado'; } catch {}
+        try { await API.copiar(url); copiar.textContent = 'copiado'; } catch {}
         setTimeout(() => { copiar.textContent = 'copiar'; }, 1600);
       };
       row.appendChild(copiar);
@@ -2455,7 +2463,7 @@ function wireUI() {
   $('btnInviteTunnel').onclick = gerarLinkNoConvite;
   const copiarDo = (idTexto, botao) => async () => {
     try {
-      await navigator.clipboard.writeText($(idTexto).textContent);
+      await API.copiar($(idTexto).textContent);
       $(botao).textContent = 'Copiado';
       setTimeout(() => { $(botao).textContent = 'Copiar'; }, 1600);
     } catch {}
@@ -2466,7 +2474,7 @@ function wireUI() {
   $('btnTunnel').onclick = gerarLinkDoTunel;
   $('btnCopyTunnel').onclick = async () => {
     try {
-      await navigator.clipboard.writeText($('tunnelUrl').textContent);
+      await API.copiar($('tunnelUrl').textContent);
       $('btnCopyTunnel').textContent = 'Copiado';
       setTimeout(() => { $('btnCopyTunnel').textContent = 'Copiar'; }, 1600);
     } catch { avisoTunel('Nao consegui copiar. Seleciona o texto e copia na mao.', 'err'); }
@@ -2505,7 +2513,7 @@ function wireUI() {
       iface.textContent = ip.iface;
       meta.appendChild(iface);
       const cp = el('button', null, 'copiar');
-      cp.onclick = () => { navigator.clipboard.writeText(url); toast('Endereco copiado!', 'ok'); };
+      cp.onclick = () => { API.copiar(url); toast('Endereco copiado!', 'ok'); };
       row.append(meta, cp);
       addrs.appendChild(row);
     }

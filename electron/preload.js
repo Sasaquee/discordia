@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld('discordia', {
   libAdd: (kind) => ipcRenderer.invoke('lib:add', kind),
   libRemove: (kind, id) => ipcRenderer.invoke('lib:remove', { kind, id }),
 
+  // area de transferencia
+  copiar: (texto) => ipcRenderer.invoke('clipboard:write', texto),
+
   // app / janela
   appInfo: () => ipcRenderer.invoke('app:info'),
   minimize: () => ipcRenderer.send('window:minimize'),

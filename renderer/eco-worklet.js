@@ -36,6 +36,7 @@ const NFFT = 512;             // ~10,7 ms de janela
 const HOP = 256;
 const BINS = NFFT / 2 + 1;
 const SUAVE = 0.85;           // memoria das medias por faixa
+const RESIDUO = 0.35;         // fracao do eco que o estagio linear costuma deixar passar
 const GANHO_MIN = 0.04;       // -28 dB: nao zera de vez, evita som engolido
 
 /** FFT radix-2 iterativa, com tabelas prontas. */
@@ -120,6 +121,8 @@ class CanceladorEco extends AudioWorkletProcessor {
     }
     this.entradaCh = [new Float32Array(NFFT), new Float32Array(NFFT)];
     this.entradaRef = new Float32Array(NFFT);
+    this.entradaEco = new Float32Array(NFFT);   // o que o estagio 1 achou que era eco
+    this.reY = new Float32Array(NFFT); this.imY = new Float32Array(NFFT);
     this.saidaCh = [new Float32Array(NFFT), new Float32Array(NFFT)];
     this.preencher = 0;
     this.prontos = 0;
@@ -128,6 +131,7 @@ class CanceladorEco extends AudioWorkletProcessor {
     this.re = new Float32Array(NFFT); this.im = new Float32Array(NFFT);
     this.reR = new Float32Array(NFFT); this.imR = new Float32Array(NFFT);
     this.pxx = new Float32Array(BINS);
+    this.pyy = new Float32Array(BINS);
     this.pee = new Float32Array(BINS);
     this.pxeRe = new Float32Array(BINS);
     this.pxeIm = new Float32Array(BINS);
@@ -222,6 +226,10 @@ class CanceladorEco extends AudioWorkletProcessor {
     for (let i = 0; i < NFFT; i++) { this.reR[i] = this.entradaRef[i] * this.janela[i]; this.imR[i] = 0; }
     this.fft.run(this.reR, this.imR, false);
 
+    // espectro da estimativa de eco do estagio 1
+    for (let i = 0; i < NFFT; i++) { this.reY[i] = this.entradaEco[i] * this.janela[i]; this.imY[i] = 0; }
+    this.fft.run(this.reY, this.imY, false);
+
     // espectro do residuo (canal 0) - e nele que medimos a coerencia
     for (let i = 0; i < NFFT; i++) { this.re[i] = this.entradaCh[0][i] * this.janela[i]; this.im[i] = 0; }
     this.fft.run(this.re, this.im, false);
@@ -239,7 +247,17 @@ class CanceladorEco extends AudioWorkletProcessor {
       // coerencia 1 = so eco nessa faixa; 0 = som do jogo, nao mexe
       const coerencia = Math.min(1, num / den);
       // (1 - coerencia) em vez da raiz: corta bem mais onde e claramente eco
-      const alvo = Math.max(GANHO_MIN, 1 - coerencia);
+      // Segunda medida, independente da coerencia: o estagio 1 estimou |Y| de eco
+      // nesta faixa. O que escapa dele e uma fracao disso (RESIDUO). Se essa sobra for
+      // comparavel ao que temos agora, abaixa. Isso resolve o caso do jogo alto tocando
+      // junto com a voz, em que a coerencia sozinha fica conservadora demais.
+      const yr = this.reY[k], yi = this.imY[k];
+      this.pyy[k] = SUAVE * this.pyy[k] + (1 - SUAVE) * (yr * yr + yi * yi);
+      const sobra = RESIDUO * Math.sqrt(this.pyy[k]);
+      const atual = Math.sqrt(this.pee[k]) + 1e-9;
+      const porEco = Math.max(0, 1 - sobra / atual);
+
+      const alvo = Math.max(GANHO_MIN, Math.min(1 - coerencia, porEco));
       // sobe rapido (nao engolir o jogo) e desce devagar (nao deixar o eco vazar)
       this.ganho[k] = alvo > this.ganho[k]
         ? 0.5 * this.ganho[k] + 0.5 * alvo
@@ -324,6 +342,7 @@ class CanceladorEco extends AudioWorkletProcessor {
         const p = this.preencher;
         for (let ch = 0; ch < canais; ch++) this.entradaCh[ch][HOP + p] = mic[ch][i] - y;
         this.entradaRef[HOP + p] = ref[base];
+        this.entradaEco[HOP + p] = y;
 
         let saidaSoma = 0;
         for (let ch = 0; ch < canais; ch++) {
@@ -343,6 +362,7 @@ class CanceladorEco extends AudioWorkletProcessor {
             this.entradaCh[ch].copyWithin(0, HOP);
           }
           this.entradaRef.copyWithin(0, HOP);
+          this.entradaEco.copyWithin(0, HOP);
           if (this.prontos < 2) this.prontos++;
         }
         this.energiaEntrada += entradaSoma;
