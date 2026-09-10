@@ -292,6 +292,50 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
           break;
         }
 
+        case 'rename-room': {
+          const de = String(msg.room || '');
+          const para = String(msg.novo || '').trim().slice(0, 32);
+          // a Geral e o porto seguro de quem entra: o nome dela nao muda
+          if (de === 'Geral' || !knownRooms.has(de)) break;
+          if (!para || para === de || knownRooms.has(para)) break;
+
+          // knownRooms guarda a ordem das salas, entao troca no lugar em vez de re-adicionar
+          const ordem = [...knownRooms].map((n) => (n === de ? para : n));
+          knownRooms.clear();
+          for (const n of ordem) knownRooms.add(n);
+
+          const set = rooms.get(de);
+          if (set) {
+            rooms.delete(de);
+            rooms.set(para, set);
+            for (const peer of set) peer.room = para; // quem ja esta dentro vai junto
+          }
+          if (history.has(de)) {
+            history.set(para, history.get(de));
+            history.delete(de);
+          }
+          saveRooms();
+          saveHistory();
+          broadcast(para, { type: 'room-renamed', de, para });
+          broadcastRooms();
+          break;
+        }
+
+        case 'move-room': {
+          const nome = String(msg.room || '');
+          if (!knownRooms.has(nome)) break;
+          const arr = [...knownRooms];
+          const i = arr.indexOf(nome);
+          const j = msg.dir === 'up' ? i - 1 : i + 1;
+          if (j < 0 || j >= arr.length) break;
+          arr.splice(j, 0, arr.splice(i, 1)[0]);
+          knownRooms.clear();
+          for (const n of arr) knownRooms.add(n);
+          saveRooms();
+          broadcastRooms();
+          break;
+        }
+
         case 'clear-history': {
           const nome = String(msg.room || '');
           if (!knownRooms.has(nome)) break;

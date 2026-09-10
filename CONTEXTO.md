@@ -178,9 +178,15 @@ Tudo em `%APPDATA%/Discordia/` (`app.getPath('userData')`):
 ## Protocolo (WebSocket, JSON)
 
 Cliente → servidor: `identify`, `join`, `leave`, `state`, `signal`, `chat`,
-`delete-room`, `clear-history`, `ping`.
+`delete-room`, `rename-room`, `move-room`, `clear-history`, `ping`.
 Servidor → cliente: `hello`, `rooms`, `joined`, `history`, `left`, `peer-join`,
-`peer-leave`, `peer-state`, `signal`, `chat`, `pong`.
+`peer-leave`, `peer-state`, `signal`, `chat`, `room-renamed`, `pong`.
+
+Sobre as salas: `knownRooms` guarda **a ordem** em que elas aparecem na lista, não só
+quais existem — por isso `rename-room` troca o nome na posição em vez de remover e
+adicionar, e `move-room` reconstrói o conjunto inteiro. Renomear leva junto o histórico
+do chat e atualiza o `ws.room` de quem já está dentro; a sala `Geral` não pode ser
+renomeada nem apagada, porque é para onde todo mundo cai ao entrar.
 
 Streams são identificadas por id: `state` anuncia `screenStreamId`/`camStreamId`, e é
 assim que o outro lado sabe se a stream que chegou é microfone, tela ou câmera.
