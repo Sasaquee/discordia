@@ -30,6 +30,12 @@ const ICON = {
   sticker: '<svg viewBox="0 0 24 24"><path d="M13 2a9 9 0 0 0-9 9v2a9 9 0 0 0 9 9c.5 0 1 0 1.4-.1V16a2 2 0 0 1 2-2h4.5c.1-.5.1-1 .1-1.5A9 9 0 0 0 13 2zm3.5 14h4l-4.5 4.5V16h.5z"/></svg>',
   board: '<svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1 1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 7a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V8a1 1 0 0 1 1-1zm8 0a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V8a1 1 0 0 1 1-1zM4 10a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zm16 0a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1z"/></svg>',
   user: '<svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.4-8 5.3V22h16v-2.7c0-2.9-3.6-5.3-8-5.3z"/></svg>',
+  lapis: '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
+  lixo: '<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
+  limpar: '<svg viewBox="0 0 24 24"><path d="M15.1 3.9a2 2 0 0 0-2.8 0L3 13.2V21h7.8l9.3-9.3a2 2 0 0 0 0-2.8l-5-5zM9.9 19H5v-4.9l5.4-5.4 4.9 4.9L9.9 19z"/></svg>',
+  cima: '<svg viewBox="0 0 24 24"><path d="M12 4l7 7h-4v9h-6v-9H5l7-7z"/></svg>',
+  baixo: '<svg viewBox="0 0 24 24"><path d="M12 20l-7-7h4V4h6v9h4l-7 7z"/></svg>',
+  mais: '<svg viewBox="0 0 24 24"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
 };
 
 // ---------------------------------------------------------
@@ -437,6 +443,16 @@ function handleMessage(msg) {
       sfx.join();
       break;
     }
+
+    case 'room-renamed':
+      // o servidor ja levou junto o historico e quem estava dentro
+      if (S.room === msg.de) {
+        S.room = msg.para;
+        $('stageRoom').textContent = msg.para;
+      }
+      sysMsg(`A sala ${msg.de} agora se chama ${msg.para}`);
+      renderRooms();
+      break;
 
     case 'left':
       sysMsg(`Voce saiu de ${msg.room || ''}`);
@@ -863,6 +879,16 @@ function renderRooms() {
     btn.onclick = () => joinRoom(r.name);
     btn.oncontextmenu = (e) => { e.preventDefault(); openRoomMenu(r, e.clientX, e.clientY); };
     wrap.appendChild(btn);
+
+    // botao direito continua funcionando, mas quase ninguem descobre sozinho
+    const mais = el('button', 'room-more', ICON.mais);
+    mais.title = 'Opcoes da sala';
+    mais.onclick = (e) => {
+      e.stopPropagation();
+      const r2 = mais.getBoundingClientRect();
+      openRoomMenu(r, r2.right - 4, r2.bottom + 4);
+    };
+    wrap.appendChild(mais);
 
     if (r.users.length) {
       const ul = el('div', 'room-users');
@@ -1688,34 +1714,138 @@ function openRoomMenu(room, x, y) {
   titulo.appendChild(nm);
   m.appendChild(titulo);
 
-  const entrar = el('button', 'ctx-item', ICON.vol + '<span>Entrar na sala</span>');
-  entrar.onclick = () => { closeCtxMenu(); joinRoom(room.name); };
-  m.appendChild(entrar);
+  const item = (icone, texto, acao, opts = {}) => {
+    const b = el('button', 'ctx-item', icone + '<span>' + texto + '</span>');
+    if (opts.perigo) b.classList.add('perigo');
+    if (opts.desligado) b.disabled = true;
+    else b.onclick = acao;
+    m.appendChild(b);
+  };
 
+  const geral = room.name === 'Geral';
   const vazia = !room.users.length;
-  const podeApagar = vazia && room.name !== 'Geral';
-  const limpar = el('button', 'ctx-item', '<span>Limpar historico do chat</span>');
-  limpar.onclick = () => {
+  const pos = S.rooms.findIndex((r) => r.name === room.name);
+
+  item(ICON.vol, 'Entrar na sala', () => { closeCtxMenu(); joinRoom(room.name); });
+
+  item(ICON.lapis, geral ? 'A sala Geral nao pode ser renomeada' : 'Renomear sala',
+    () => { closeCtxMenu(); abrirModalSala('renomear', room.name); },
+    { desligado: geral });
+
+  item(ICON.cima, 'Mover para cima',
+    () => { closeCtxMenu(); send({ type: 'move-room', room: room.name, dir: 'up' }); },
+    { desligado: pos <= 0 });
+
+  item(ICON.baixo, 'Mover para baixo',
+    () => { closeCtxMenu(); send({ type: 'move-room', room: room.name, dir: 'down' }); },
+    { desligado: pos < 0 || pos >= S.rooms.length - 1 });
+
+  item(ICON.limpar, 'Limpar historico do chat', async () => {
     closeCtxMenu();
+    const ok = await confirmar({
+      titulo: 'Limpar o historico de #' + room.name + '?',
+      texto: 'As mensagens dessa sala somem para todo mundo, inclusive para quem nao esta online agora. Nao da para desfazer.',
+      botao: 'Limpar historico',
+    });
+    if (!ok) return;
     send({ type: 'clear-history', room: room.name });
     toast('Historico de #' + room.name + ' apagado.', 'ok');
-  };
-  m.appendChild(limpar);
+  });
 
-  const apagar = el('button', 'ctx-item',
-    '<span>' + (room.name === 'Geral' ? 'A sala Geral nao pode ser apagada'
-      : vazia ? 'Excluir sala' : 'Tem gente dentro - nao da para excluir') + '</span>');
-  apagar.style.color = podeApagar ? 'var(--danger)' : 'var(--dim)';
-  if (podeApagar) {
-    apagar.onclick = () => {
+  item(ICON.lixo,
+    geral ? 'A sala Geral nao pode ser apagada'
+      : vazia ? 'Excluir sala' : 'Tem gente dentro - nao da para excluir',
+    async () => {
       closeCtxMenu();
+      const ok = await confirmar({
+        titulo: 'Excluir a sala #' + room.name + '?',
+        texto: 'A sala e o historico de conversa dela somem para todo mundo. Nao da para desfazer.',
+        botao: 'Excluir sala',
+      });
+      if (!ok) return;
       send({ type: 'delete-room', room: room.name });
-    };
-  } else {
-    apagar.style.cursor = 'default';
-  }
-  m.appendChild(apagar);
+      toast('Sala #' + room.name + ' excluida.', 'ok');
+    },
+    { perigo: !geral && vazia, desligado: geral || !vazia });
+
   posicionarMenu(m, x, y);
+}
+
+/**
+ * Confirmacao para o que nao da para desfazer (apagar sala, limpar historico).
+ * Resolve true/false; Enter confirma, Esc e clique fora cancelam.
+ */
+function confirmar({ titulo, texto, botao = 'Confirmar' }) {
+  return new Promise((resolve) => {
+    const back = $('confirmModal');
+    const ok = $('confirmOk');
+    const cancelar = $('confirmCancel');
+    $('confirmTitle').textContent = titulo;
+    $('confirmText').textContent = texto;
+    ok.textContent = botao;
+    back.classList.remove('hidden');
+
+    const onKey = (e) => {
+      if (e.key !== 'Escape' && e.key !== 'Enter') return;
+      e.stopPropagation();   // senao o Esc global fecharia o modal sem responder a promessa
+      e.preventDefault();
+      fechar(e.key === 'Enter');
+    };
+    function fechar(valor) {
+      back.classList.add('hidden');
+      ok.onclick = cancelar.onclick = back.onclick = null;
+      $('confirmX').onclick = null;
+      document.removeEventListener('keydown', onKey, true);
+      resolve(valor);
+    }
+    ok.onclick = () => fechar(true);
+    cancelar.onclick = () => fechar(false);
+    $('confirmX').onclick = () => fechar(false);
+    back.onclick = (e) => { if (e.target === back) fechar(false); };
+    document.addEventListener('keydown', onKey, true);
+    setTimeout(() => ok.focus(), 40);
+  });
+}
+
+// ---------------------------------------------------------
+// Modal de sala (serve para criar e para renomear)
+// ---------------------------------------------------------
+let modoSala = 'criar';
+let salaAlvo = null;
+
+function erroSala(texto) {
+  const n = $('roomModalErro');
+  n.textContent = texto || '';
+  n.classList.toggle('hidden', !texto);
+}
+
+function abrirModalSala(modo, nomeAtual) {
+  modoSala = modo;
+  salaAlvo = nomeAtual || null;
+  const criando = modo === 'criar';
+  $('roomModalTitle').textContent = criando ? 'Nova sala' : 'Renomear sala';
+  $('btnCreateRoom').textContent = criando ? 'Criar e entrar' : 'Salvar nome';
+  $('inpRoom').value = criando ? '' : nomeAtual || '';
+  erroSala('');
+  $('roomModal').classList.remove('hidden');
+  setTimeout(() => { $('inpRoom').focus(); $('inpRoom').select(); }, 50);
+}
+
+function confirmarModalSala() {
+  const nome = ($('inpRoom').value || '').trim();
+  if (!nome) return erroSala('Escreve um nome para a sala.');
+  const existe = S.rooms.some((r) => r.name.toLowerCase() === nome.toLowerCase());
+
+  if (modoSala === 'criar') {
+    if (existe) return erroSala('Ja existe uma sala com esse nome.');
+    $('roomModal').classList.add('hidden');
+    joinRoom(nome);
+    return;
+  }
+  if (nome === salaAlvo) { $('roomModal').classList.add('hidden'); return; }
+  if (existe) return erroSala('Ja existe uma sala com esse nome.');
+  $('roomModal').classList.add('hidden');
+  send({ type: 'rename-room', room: salaAlvo, novo: nome });
 }
 
 function openPeerMenu(id, x, y) {
@@ -2211,18 +2341,12 @@ function wireUI() {
   };
 
   // salas
-  $('btnNewRoom').onclick = () => {
-    $('roomModal').classList.remove('hidden');
-    $('inpRoom').value = '';
-    setTimeout(() => $('inpRoom').focus(), 50);
+  $('btnNewRoom').onclick = () => abrirModalSala('criar');
+  $('btnCreateRoom').onclick = confirmarModalSala;
+  $('inpRoom').onkeydown = (e) => {
+    if (e.key === 'Enter') confirmarModalSala();
+    else erroSala('');
   };
-  $('btnCreateRoom').onclick = () => {
-    const name = ($('inpRoom').value || '').trim();
-    if (!name) return;
-    $('roomModal').classList.add('hidden');
-    joinRoom(name);
-  };
-  $('inpRoom').onkeydown = (e) => { if (e.key === 'Enter') $('btnCreateRoom').click(); };
 
   // chat
   $('chatForm').onsubmit = (e) => {

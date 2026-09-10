@@ -368,7 +368,7 @@
 <div class="modal-back hidden" id="roomModal">
   <div class="modal small">
     <div class="modal-head">
-      <h3>Nova sala</h3>
+      <h3 id="roomModalTitle">Nova sala</h3>
       <button class="modal-x" data-close="roomModal">&times;</button>
     </div>
     <div class="modal-body">
@@ -376,10 +376,28 @@
         <span>Nome da sala</span>
         <input id="inpRoom" type="text" maxlength="32" placeholder="ex: Jogatina" autocomplete="off" />
       </label>
+      <div id="roomModalErro" class="field-erro hidden"></div>
     </div>
     <div class="modal-foot">
       <div></div>
       <button class="btn primary" id="btnCreateRoom">Criar e entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: CONFIRMAR ACAO ================= -->
+<div class="modal-back hidden" id="confirmModal">
+  <div class="modal small">
+    <div class="modal-head">
+      <h3 id="confirmTitle">Confirmar</h3>
+      <button class="modal-x" id="confirmX">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" id="confirmText"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="confirmCancel">Cancelar</button>
+      <button class="btn danger" id="confirmOk">Confirmar</button>
     </div>
   </div>
 </div>
