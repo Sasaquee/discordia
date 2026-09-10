@@ -50,6 +50,28 @@ npm run dist       # gera dist/Discordia-Setup-<versão>.exe
 | `server/server.js` | Sinalização WebSocket + salas + histórico do chat |
 | `scripts/make-icon.js` | Gera `build/icon.png/.ico` e `assets/wordmark.png` a partir das artes |
 
+## Identidade visual
+
+Tudo sai da marca, não de um tema genérico. O `:root` do `styles.css` guarda os tokens; use
+eles em vez de cravar cor no componente.
+
+- **Cores**: fundo quase preto azulado (`--void` … `--raised`, do fundo para a frente) e o
+  gradiente do ícone (`--grad`: ciano `#45dcff` → índigo `#5f6ff5` → magenta `#c02ee0`).
+  As bordas (`--line*`) são luz fraca em azul, nunca cinza morto.
+- **Onde o gradiente pode aparecer**: marca, botão primário, barra da sala ativa, medidor do
+  microfone, botão de enviar e a faixa lateral do toast. Em mais lugares que isso vira enfeite.
+- **Estados têm cor fixa**: ciano = ligado/ativo (microfone aberto, compartilhando),
+  `--danger` = mudo/sair, `--live` = AO VIVO, `--good` = servidor no ar.
+- **Tipografia**: `--font-display` (Bahnschrift, já vem no Windows) em títulos, rótulos
+  maiúsculos e botões de segmento; `--font` (Segoe UI) no texto corrido; `--font-mono`
+  (Cascadia/Consolas) em tudo que é dado: endereço do servidor, latência, horário, volume, teclas.
+- **Motivo gráfico**: as duas barras verticais do balão de fala do ícone. Elas aparecem
+  animadas em `.tile.speaking::before/::after` (quem está falando) e viram a barra de gradiente
+  em `.room.active .room-btn::before` (sala ativa). É o único movimento dentro da chamada, de
+  propósito: animação em call disputa atenção com o jogo.
+- **Movimento**: só na tela de conexão (a faixa `.connect-eq`), no indicador de fala e nos
+  hovers. Tudo desligado em `prefers-reduced-motion`.
+
 ## Decisões que não são óbvias
 
 Cada uma destas resolveu um bug real. Mexer nelas sem entender quebra o app.
