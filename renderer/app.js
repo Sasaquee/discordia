@@ -36,6 +36,7 @@ const ICON = {
   cima: '<svg viewBox="0 0 24 24"><path d="M12 4l7 7h-4v9h-6v-9H5l7-7z"/></svg>',
   baixo: '<svg viewBox="0 0 24 24"><path d="M12 20l-7-7h4V4h6v9h4l-7 7z"/></svg>',
   mais: '<svg viewBox="0 0 24 24"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+  voltar: '<svg viewBox="0 0 24 24"><path d="M10 4.5 3 12l7 7.5v-4.4h6.5a1 1 0 0 0 1-1V9.9a1 1 0 0 0-1-1H10V4.5zM19 5a1 1 0 0 1 1 1v12a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1z"/></svg>',
 };
 
 // ---------------------------------------------------------
@@ -1633,6 +1634,25 @@ function teardownAll() {
   $('chatLog').innerHTML = '';
 }
 
+/**
+ * Sai do servidor e volta para a tela de conexao/hospedagem.
+ * Se estiver numa chamada, pergunta antes: sair derruba a conversa.
+ */
+async function voltarParaHospedagem() {
+  if (S.room) {
+    const ok = await confirmar({
+      titulo: 'Sair do servidor?',
+      texto: 'Voce esta na sala #' + S.room + '. Sair encerra a chamada e volta para a tela de hospedagem.',
+      botao: 'Sair do servidor',
+    });
+    if (!ok) return;
+  }
+  if (S.ws) { const w = S.ws; S.ws = null; try { w.close(); } catch {} }
+  teardownAll();
+  setStatus('desconectado', 'off');
+  showConnect();
+}
+
 async function doConnect(url) {
   const name = ($('inpName').value || '').trim();
   if (!name) { setConnectMsg('Escolhe um nome primeiro.', 'err'); $('inpName').focus(); return false; }
@@ -1824,7 +1844,7 @@ function abrirModalSala(modo, nomeAtual) {
   salaAlvo = nomeAtual || null;
   const criando = modo === 'criar';
   $('roomModalTitle').textContent = criando ? 'Nova sala' : 'Renomear sala';
-  $('btnCreateRoom').textContent = criando ? 'Criar e entrar' : 'Salvar nome';
+  $('btnCreateRoom').textContent = criando ? 'Criar sala' : 'Salvar nome';
   $('inpRoom').value = criando ? '' : nomeAtual || '';
   erroSala('');
   $('roomModal').classList.remove('hidden');
@@ -1839,7 +1859,9 @@ function confirmarModalSala() {
   if (modoSala === 'criar') {
     if (existe) return erroSala('Ja existe uma sala com esse nome.');
     $('roomModal').classList.add('hidden');
-    joinRoom(nome);
+    // so cria: quem quiser entrar clica nela na lista
+    send({ type: 'create-room', room: nome });
+    toast('Sala #' + nome + ' criada.', 'ok');
     return;
   }
   if (nome === salaAlvo) { $('roomModal').classList.add('hidden'); return; }
@@ -2418,11 +2440,10 @@ function wireUI() {
   $('optTray').onchange = (e) => saveSettings({ minimizeToTray: e.target.checked });
   $('btnDisconnect').onclick = () => {
     $('settingsModal').classList.add('hidden');
-    if (S.ws) { const w = S.ws; S.ws = null; try { w.close(); } catch {} }
-    teardownAll();
-    setStatus('desconectado', 'off');
-    showConnect();
+    voltarParaHospedagem();
   };
+  $('btnServerBack').innerHTML = ICON.voltar;
+  $('btnServerBack').onclick = () => voltarParaHospedagem();
 
   // ----- layout do palco -----
   const aplicarLayout = (modo) => {

@@ -292,6 +292,16 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
           break;
         }
 
+        case 'create-room': {
+          // criar sem entrar: a sala fica na lista esperando a galera
+          const nome = String(msg.room || '').trim().slice(0, 32);
+          if (!nome || knownRooms.has(nome)) break;
+          knownRooms.add(nome);
+          saveRooms();
+          broadcastRooms();
+          break;
+        }
+
         case 'rename-room': {
           const de = String(msg.room || '');
           const para = String(msg.novo || '').trim().slice(0, 32);
