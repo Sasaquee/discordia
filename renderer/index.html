@@ -346,6 +346,16 @@
         <span>Cancelamento de eco e ruido</span>
       </label>
       <label class="switch">
+        <input type="checkbox" id="optPtt" />
+        <span>Apertar para falar</span>
+      </label>
+      <div class="ptt-linha">
+        <span>Tecla: <b id="pttTecla">nenhuma tecla escolhida</b></span>
+        <button class="btn ghost small" id="btnPttTecla">Escolher tecla</button>
+      </div>
+      <div class="hint">Funciona com o jogo na frente. Para isso o app precisa ouvir o teclado do sistema; ele so compara com a tecla escolhida e nao guarda nada. Fica desligado ate voce ativar.</div>
+
+      <label class="switch">
         <input type="checkbox" id="optSounds" checked />
         <span>Sons de entrar/sair</span>
       </label>
@@ -475,6 +485,14 @@
 
 <!-- menu de contexto (botao direito) -->
 <div id="ctxMenu" class="ctx hidden"></div>
+
+<!-- aviso de versao nova: discreto, para nao atrapalhar quem esta na chamada -->
+<div id="updateBar" class="update-bar hidden">
+  <span class="update-dot"></span>
+  <span id="updateTexto">Versao nova disponivel</span>
+  <button class="btn primary small hidden" id="btnUpdateInstalar">Reiniciar e atualizar</button>
+  <button class="update-x" id="btnUpdateFechar" title="Depois">&times;</button>
+</div>
 
 <div id="toasts" class="toasts"></div>
 

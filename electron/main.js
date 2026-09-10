@@ -186,11 +186,134 @@ app.whenReady().then(() => {
 
   createWindow();
   createTray();
+  ligarAtualizacoes();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+// ---- apertar para falar (push to talk) ----
+/**
+ * Para funcionar com o jogo em primeiro plano nao da para usar tecla do
+ * renderer (so chega com o app em foco) nem `globalShortcut` (avisa quando
+ * aperta, nunca quando solta). Entao aqui e um hook de teclado do sistema.
+ *
+ * Ele enxerga tudo que o usuario digita, entao:
+ *   - so liga quando a pessoa ativa o "apertar para falar" (padrao: desligado);
+ *   - compara o codigo da tecla com a configurada e descarta o resto;
+ *   - nada e guardado, gravado ou enviado para lugar nenhum.
+ */
+const ptt = { ligado: false, tecla: null, segurando: false };
+let hookLigado = false;
+let hookOuvindo = false;
+let capturarTecla = null;   // resolve() enquanto a pessoa escolhe a tecla
+
+function hook() {
+  try { return require('uiohook-napi'); } catch { return null; }
+}
+
+function garantirOuvintes() {
+  if (hookOuvindo) return true;
+  const h = hook();
+  if (!h) return false;
+  h.uIOhook.on('keydown', (e) => {
+    if (capturarTecla) { const f = capturarTecla; capturarTecla = null; f(e.keycode); return; }
+    if (!ptt.ligado || e.keycode !== ptt.tecla || ptt.segurando) return;
+    ptt.segurando = true;
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('ptt:estado', { falando: true });
+  });
+  h.uIOhook.on('keyup', (e) => {
+    if (!ptt.ligado || e.keycode !== ptt.tecla || !ptt.segurando) return;
+    ptt.segurando = false;
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('ptt:estado', { falando: false });
+  });
+  hookOuvindo = true;
+  return true;
+}
+
+function ligarHook() {
+  if (hookLigado) return true;
+  const h = hook();
+  if (!h || !garantirOuvintes()) return false;
+  try { h.uIOhook.start(); hookLigado = true; } catch { return false; }
+  return true;
+}
+
+function desligarHook() {
+  if (!hookLigado || capturarTecla) return;
+  const h = hook();
+  try { h && h.uIOhook.stop(); } catch {}
+  hookLigado = false;
+  ptt.segurando = false;
+}
+
+/** Nome legivel da tecla, para mostrar na tela. */
+function nomeDaTecla(codigo) {
+  const h = hook();
+  if (!h) return 'tecla ' + codigo;
+  const achado = Object.entries(h.UiohookKey).find(([, v]) => v === codigo);
+  return achado ? achado[0] : 'tecla ' + codigo;
+}
+
+ipcMain.handle('ptt:configurar', (_e, { ligado, tecla } = {}) => {
+  ptt.ligado = !!ligado;
+  if (typeof tecla === 'number') ptt.tecla = tecla;
+  if (ptt.ligado && ptt.tecla != null) {
+    if (!ligarHook()) return { ok: false, error: 'Nao consegui ouvir o teclado do sistema neste PC.' };
+  } else {
+    desligarHook();
+  }
+  return { ok: true, ligado: ptt.ligado, tecla: ptt.tecla, nome: ptt.tecla != null ? nomeDaTecla(ptt.tecla) : null };
+});
+
+ipcMain.handle('ptt:capturar', async () => {
+  if (!ligarHook()) return { ok: false, error: 'Nao consegui ouvir o teclado do sistema neste PC.' };
+  const codigo = await new Promise((resolve) => {
+    capturarTecla = resolve;
+    setTimeout(() => { if (capturarTecla === resolve) { capturarTecla = null; resolve(null); } }, 8000);
+  });
+  if (codigo == null) { if (!ptt.ligado) desligarHook(); return { ok: false, error: 'Nenhuma tecla apertada.' }; }
+  ptt.tecla = codigo;
+  if (!ptt.ligado) desligarHook();
+  return { ok: true, tecla: codigo, nome: nomeDaTecla(codigo) };
+});
+
+// ---- atualizacao automatica ----
+// O instalador de cada versao vai anexado na Release do GitHub; o app olha la,
+// baixa em segundo plano e instala quando a pessoa mandar. Antes disso todo
+// mundo tinha que baixar 100 MB na mao a cada correcao.
+function ligarAtualizacoes() {
+  if (!app.isPackaged && !fs.existsSync(path.join(__dirname, '..', 'dev-app-update.yml'))) return;
+  let updater;
+  try {
+    ({ autoUpdater: updater } = require('electron-updater'));
+  } catch { return; }
+
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  const avisar = (canal, dados) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(canal, dados);
+  };
+
+  updater.on('update-available', (info) => avisar('update:disponivel', { versao: info.version }));
+  updater.on('download-progress', (p) => avisar('update:progresso', { pct: Math.round(p.percent) }));
+  updater.on('update-downloaded', (info) => avisar('update:pronto', { versao: info.version }));
+  updater.on('error', (err) => console.log('[update]', err && err.message));
+
+  ipcMain.handle('update:instalar', () => { quitting = true; pararTunel(); updater.quitAndInstall(); });
+  ipcMain.handle('update:checar', async () => {
+    try {
+      const r = await updater.checkForUpdates();
+      return { ok: true, versao: r && r.updateInfo ? r.updateInfo.version : null };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // sem pressa no boot: primeiro o app abre, depois ele vai olhar a release
+  setTimeout(() => { updater.checkForUpdates().catch(() => {}); }, 8000);
+}
 
 app.on('before-quit', () => { quitting = true; pararTunel(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

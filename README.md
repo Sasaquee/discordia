@@ -30,6 +30,9 @@ outro (P2P), sem passar por servidor nenhum.
   personalizadas e GIFs do Giphy
 - **Efeitos sonoros** (soundboard) com áudios seus, teclas `1`–`9`, tocando para a sala
   mesmo com o microfone mudo
+- **Apertar para falar**, com tecla à sua escolha, funcionando com o jogo na frente
+- **Reconecta sozinho** quando a conexão cai, voltando para a mesma sala
+- **Se atualiza sozinho**: avisa quando sai versão nova e instala quando você mandar
 
 ## Instalação
 
