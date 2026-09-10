@@ -365,9 +365,9 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15);box-shadow:0
 /* ===================== Shell do app ===================== */
 .app{
   position:absolute;inset:38px 0 0 0;display:grid;
-  grid-template-columns:248px 1fr 312px;background:var(--bg);
+  grid-template-columns:268px 1fr 312px;background:var(--bg);
 }
-.app.no-chat{grid-template-columns:248px 1fr}
+.app.no-chat{grid-template-columns:268px 1fr}
 .app.no-chat .chat{display:none}
 
 /* -------- Sidebar -------- */
@@ -440,7 +440,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15);box-shadow:0
 .room-user .mini-ic{width:13px;height:13px;color:var(--danger);flex:none}
 
 .user-panel{
-  display:flex;align-items:center;gap:9px;padding:10px;margin:10px;
+  display:flex;align-items:center;gap:8px;padding:9px 8px 9px 10px;margin:10px;
   background:var(--surface-2);border:1px solid var(--line);border-radius:14px;
 }
 .user-meta{flex:1;min-width:0}
@@ -449,8 +449,8 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15);box-shadow:0
   font-size:10.5px;color:var(--dim);margin-top:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.user-panel .icon-btn{width:28px;height:28px}
-.user-panel .icon-btn svg{width:15px;height:15px}
+.user-panel .icon-btn{width:26px;height:26px}
+.user-panel .icon-btn svg{width:14px;height:14px}
 
 /* -------- Avatares -------- */
 .avatar{
@@ -779,16 +779,20 @@ button.avatar:hover{transform:scale(1.06);box-shadow:0 0 0 2px var(--cyan),0 0 1
   border:4px solid var(--surface);box-shadow:0 8px 22px rgba(0,0,0,.45);
 }
 /* o ponto de status fica na borda do avatar, como um selo */
+/* Status: um ponto encostado na borda do avatar, com um anel da cor do fundo
+   para ele nao encostar na foto. Sombra nao servia: vazava por tras. */
+.av-status{position:relative;flex:none;display:block;line-height:0}
+.av-status > .ponto{
+  position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;border-radius:50%;
+  background:var(--good);border:2.5px solid var(--surface);pointer-events:none;
+}
+.av-status > .ponto[data-status=ocupado]{background:var(--danger)}
+.av-status > .ponto[data-status=ausente]{background:var(--warn)}
+.user-panel .av-status > .ponto{border-color:var(--surface-2)}
 .cartao-status{
-  position:absolute;right:2px;bottom:2px;width:18px;height:18px;border-radius:50%;
-  border:3px solid var(--surface);background:var(--good);
+  position:absolute;right:4px;bottom:4px;width:20px;height:20px;border-radius:50%;
+  border:4px solid var(--surface);background:var(--good);
 }
-/* ponto de status na lista: box-shadow porque o avatar tem overflow:hidden */
-.avatar[data-status]{
-  box-shadow:0 0 0 2px var(--surface), 6px 6px 0 -1px var(--good), 6px 6px 0 1px var(--surface);
-}
-.avatar[data-status=ocupado]{box-shadow:0 0 0 2px var(--surface), 6px 6px 0 -1px var(--danger), 6px 6px 0 1px var(--surface)}
-.avatar[data-status=ausente]{box-shadow:0 0 0 2px var(--surface), 6px 6px 0 -1px var(--warn), 6px 6px 0 1px var(--surface)}
 .cartao-status[data-status=ocupado]{background:var(--danger)}
 .cartao-status[data-status=ausente]{background:var(--warn)}
 
@@ -903,6 +907,59 @@ body.fullscreen .stage{padding:12px}
 }
 .fs-bar:hover{opacity:1}
 .fs-bar input[type=range]{width:90px}
+
+/* ===================== Mini perfil ===================== */
+.mini{
+  position:fixed;z-index:190;width:288px;border-radius:16px;overflow:hidden;
+  background:rgba(17,22,41,.98);border:1px solid var(--line-2);
+  box-shadow:var(--shadow);backdrop-filter:blur(16px);animation:pop .13s ease;
+}
+.mini-faixa{height:56px;background:var(--grad)}
+.mini-faixa[data-faixa=ciano]{background:linear-gradient(105deg,#1c6b86,#45dcff)}
+.mini-faixa[data-faixa=violeta]{background:linear-gradient(105deg,#3b2a6b,#a855f7)}
+.mini-faixa[data-faixa=magenta]{background:linear-gradient(105deg,#5c1b56,#d02ee0)}
+.mini-faixa[data-faixa=verde]{background:linear-gradient(105deg,#12564a,#2fe3a6)}
+.mini-faixa[data-faixa=ambar]{background:linear-gradient(105deg,#6b4a10,#ffb43d)}
+.mini-faixa[data-faixa=rubi]{background:linear-gradient(105deg,#6b1a28,#ff4f63)}
+.mini-faixa[data-faixa=grafite]{background:linear-gradient(105deg,#1a2036,#38415e)}
+
+.mini-topo{display:flex;align-items:flex-end;justify-content:space-between;padding:0 14px;margin-top:-26px}
+.mini-av .avatar{width:58px;height:58px;font-size:19px;border:4px solid rgba(17,22,41,.98)}
+.mini-av .ponto{border-color:rgba(17,22,41,.98);width:14px;height:14px}
+.mini-acoes{display:flex;gap:6px;padding-bottom:6px}
+.mini-acao{
+  width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  color:var(--muted);background:var(--surface-2);border:1px solid var(--line);transition:.14s;
+}
+.mini-acao svg{width:16px;height:16px}
+.mini-acao:hover{color:var(--text);background:var(--raised)}
+.mini-acao.on{color:var(--danger);border-color:rgba(255,79,99,.4);background:rgba(255,79,99,.12)}
+
+.mini-corpo{padding:10px 14px 14px}
+/* o nick e um botao: e por ele que se chega no perfil completo */
+.mini-nome{
+  display:flex;align-items:center;gap:4px;padding:2px 6px 2px 0;border-radius:8px;
+  font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:.3px;
+  color:var(--text);max-width:100%;transition:.12s;
+}
+.mini-nome span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-nome svg{width:15px;height:15px;flex:none;opacity:0;transition:.14s;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.mini-nome:hover{color:var(--cyan)}
+.mini-nome:hover svg{opacity:1;transform:translateX(2px)}
+.mini-linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:1px}
+.mini-linha span{font-size:12px;color:var(--muted)}
+.mini-bio{
+  font-size:12.5px;line-height:1.55;color:#c9cfe4;margin-top:10px;
+  padding:9px 11px;border-radius:10px;background:var(--sunken);border:1px solid var(--line);
+  user-select:text;overflow-wrap:anywhere;
+}
+.mini .cartao-tags{margin:10px 0 0}
+.mini-vol{margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+.mini-vol-topo{
+  display:flex;justify-content:space-between;font-family:var(--font-display);
+  font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);margin-bottom:7px;
+}
+.mini-vol-topo b{font-family:var(--font-mono);color:var(--cyan);font-weight:600;letter-spacing:0}
 
 /* ===================== Menu de contexto ===================== */
 .ctx{

@@ -112,6 +112,14 @@ que sala está, há quanto tempo entrou (`entrouEm`, marcado no `join`), se est�
 microfone mudo, compartilhando tela ou com a câmera ligada, e se você silenciou ela.
 Essa parte é a que um perfil de rede social não teria como ter.
 
+O perfil tem **duas camadas**, como no Discord: clicar na pessoa abre o **mini**
+(faixa, foto, nick, status, bio e volume, ali mesmo, sem sair da tela), e clicar no
+**nick dentro do mini** abre o cartão completo. O mini pára a propagação do clique,
+senão o mesmo clique que o abre chega no fechador global de menus e ele nunca aparece.
+
+O ponto de status é um elemento irmão do avatar (`.av-status > .ponto`), não sombra:
+sombra vazava por trás da foto e ficava com cara de bola solta.
+
 A **nota** ("só você vê") fica no `settings.json` da sua máquina e nunca é enviada. A
 chave dela é o **nome** da pessoa, não o id: o id é sorteado a cada conexão e a nota
 não sobreviveria à próxima chamada.

@@ -304,7 +304,14 @@ function ligarAtualizacoes() {
   updater.on('update-downloaded', (info) => avisar('update:pronto', { versao: info.version }));
   updater.on('error', (err) => console.log('[update]', err && err.message));
 
-  ipcMain.handle('update:instalar', () => { quitting = true; pararTunel(); updater.quitAndInstall(); });
+  ipcMain.handle('update:instalar', () => {
+    quitting = true;
+    pararTunel();
+    // (silencioso, reabrir depois): sem isso o NSIS mostra a janela de
+    // progresso da instalacao, que nao faz sentido para quem so clicou em
+    // atualizar um app que ja esta instalado
+    updater.quitAndInstall(true, true);
+  });
   ipcMain.handle('update:checar', async () => {
     try {
       const r = await updater.checkForUpdates();
