@@ -37,6 +37,7 @@ const ICON = {
   cima: '<svg viewBox="0 0 24 24"><path d="M12 4l7 7h-4v9h-6v-9H5l7-7z"/></svg>',
   baixo: '<svg viewBox="0 0 24 24"><path d="M12 20l-7-7h4V4h6v9h4l-7 7z"/></svg>',
   mais: '<svg viewBox="0 0 24 24"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+  voltar: '<svg viewBox="0 0 24 24"><path d="M10 4.5 3 12l7 7.5v-4.4h6.5a1 1 0 0 0 1-1V9.9a1 1 0 0 0-1-1H10V4.5zM19 5a1 1 0 0 1 1 1v12a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1z"/></svg>',
 };
 
 // ---------------------------------------------------------
@@ -208,6 +209,8 @@ async function loadSettings() {
   S.name = S.settings.name || '';
   $('inpName').value = S.settings.name || '';
   $('inpServer').value = S.settings.server || 'ws://localhost:45070';
+  S.senha = S.settings.senha || '';
+  $('inpSenha').value = S.senha;
   $('volIn').value = S.settings.volIn;
   $('volOut').value = S.settings.volOut;
   $('volInVal').textContent = S.settings.volIn + '%';
@@ -379,19 +382,48 @@ function connect(url, { silent = false } = {}) {
       reject(new Error('tempo esgotado'));
     }, 8000);
 
+    // servidor exposto na internet pede senha: so consideramos conectado depois
+    // que ela passa, senao o app abriria numa lista de salas que nunca vem
+    let liberado = false;
+    const identificar = () => send({ type: 'identify', name: S.name, avatar: S.settings.avatar || '' });
+
     ws.onopen = () => {
-      clearTimeout(timer);
       S.ws = ws;
       S.serverUrl = url;
       S.connected = true;
       S.reconnectTries = 0;
-      send({ type: 'identify', name: S.name, avatar: S.settings.avatar || '' });
+      identificar();
       setStatus('conectado', 'on');
-      resolve(ws);
     };
     ws.onmessage = (ev) => {
       let msg;
       try { msg = JSON.parse(ev.data); } catch { return; }
+
+      if (!liberado) {
+        if (msg.type === 'hello') {
+          handleMessage(msg);
+          if (msg.precisaSenha) { send({ type: 'auth', senha: S.senha || '' }); return; }
+          liberado = true;
+          clearTimeout(timer);
+          resolve(ws);
+          return;
+        }
+        if (msg.type === 'auth-ok') {
+          liberado = true;
+          clearTimeout(timer);
+          identificar();   // o primeiro identify foi antes da senha passar
+          resolve(ws);
+          return;
+        }
+        if (msg.type === 'auth-fail') {
+          clearTimeout(timer);
+          const e = new Error(msg.motivo === 'tempo' ? 'tempo' : 'senha');
+          e.auth = true;
+          try { ws.close(); } catch {}
+          reject(e);
+          return;
+        }
+      }
       handleMessage(msg);
     };
     ws.onerror = () => { clearTimeout(timer); };
@@ -1760,11 +1792,31 @@ async function gerarLinkNoConvite() {
   }
 }
 
+/**
+ * Sai do servidor e volta para a tela de conexao/hospedagem.
+ * Se estiver numa chamada, pergunta antes: sair derruba a conversa.
+ */
+async function voltarParaHospedagem() {
+  if (S.room) {
+    const ok = await confirmar({
+      titulo: 'Sair do servidor?',
+      texto: 'Voce esta na sala #' + S.room + '. Sair encerra a chamada e volta para a tela de hospedagem.',
+      botao: 'Sair do servidor',
+    });
+    if (!ok) return;
+  }
+  if (S.ws) { const w = S.ws; S.ws = null; try { w.close(); } catch {} }
+  teardownAll();
+  setStatus('desconectado', 'off');
+  showConnect();
+}
+
 async function doConnect(url) {
   const name = ($('inpName').value || '').trim();
   if (!name) { setConnectMsg('Escolhe um nome primeiro.', 'err'); $('inpName').focus(); return false; }
   S.name = name;
-  saveSettings({ name, server: url });
+  S.senha = $('inpSenha').value || '';
+  saveSettings({ name, server: url, senha: S.senha });
 
   setConnectMsg('Conectando...');
   const mic = await startMic();
@@ -1773,7 +1825,15 @@ async function doConnect(url) {
   try {
     await connect(url, { silent: true });
   } catch (err) {
-    setConnectMsg('Nao consegui conectar em ' + url + '. Confere o endereco e se o servidor esta ligado.', 'err');
+    if (err.auth) {
+      setConnectMsg(err.message === 'tempo'
+        ? 'Esse servidor pede senha e o tempo para responder acabou. Tenta de novo.'
+        : 'Senha incorreta para esse servidor.', 'err');
+      $('inpSenha').focus();
+      $('inpSenha').select();
+    } else {
+      setConnectMsg('Nao consegui conectar em ' + url + '. Confere o endereco e se o servidor esta ligado.', 'err');
+    }
     return false;
   }
   setConnectMsg('');
@@ -1951,7 +2011,7 @@ function abrirModalSala(modo, nomeAtual) {
   salaAlvo = nomeAtual || null;
   const criando = modo === 'criar';
   $('roomModalTitle').textContent = criando ? 'Nova sala' : 'Renomear sala';
-  $('btnCreateRoom').textContent = criando ? 'Criar e entrar' : 'Salvar nome';
+  $('btnCreateRoom').textContent = criando ? 'Criar sala' : 'Salvar nome';
   $('inpRoom').value = criando ? '' : nomeAtual || '';
   erroSala('');
   $('roomModal').classList.remove('hidden');
@@ -1966,7 +2026,9 @@ function confirmarModalSala() {
   if (modoSala === 'criar') {
     if (existe) return erroSala('Ja existe uma sala com esse nome.');
     $('roomModal').classList.add('hidden');
-    joinRoom(nome);
+    // so cria: quem quiser entrar clica nela na lista
+    send({ type: 'create-room', room: nome });
+    toast('Sala #' + nome + ' criada.', 'ok');
     return;
   }
   if (nome === salaAlvo) { $('roomModal').classList.add('hidden'); return; }
@@ -2475,6 +2537,7 @@ function wireUI() {
   };
 
   $('inpServer').onkeydown = (e) => { if (e.key === 'Enter') $('btnConnect').click(); };
+  $("inpSenha").onkeydown = (e) => { if (e.key === "Enter") $("btnConnect").click(); };
   $('inpName').onkeydown = (e) => { if (e.key === 'Enter') $('btnConnect').click(); };
 
   // controles da chamada
@@ -2572,11 +2635,10 @@ function wireUI() {
   $('optTray').onchange = (e) => saveSettings({ minimizeToTray: e.target.checked });
   $('btnDisconnect').onclick = () => {
     $('settingsModal').classList.add('hidden');
-    if (S.ws) { const w = S.ws; S.ws = null; try { w.close(); } catch {} }
-    teardownAll();
-    setStatus('desconectado', 'off');
-    showConnect();
+    voltarParaHospedagem();
   };
+  $('btnServerBack').innerHTML = ICON.voltar;
+  $('btnServerBack').onclick = () => voltarParaHospedagem();
 
   // ----- layout do palco -----
   const aplicarLayout = (modo) => {

@@ -72,6 +72,17 @@ o servidor numa VPS:
 node server/server.js 45070
 ```
 
+### Sem ninguém hospedar
+
+Dá para deixar um servidor ligado 24h na nuvem: aí ninguém precisa hospedar, abrir
+porta no roteador nem instalar VPN, e todo mundo só põe o endereço e a senha na tela
+de conexão. Voz, vídeo e tela continuam indo direto de um PC para o outro — a nuvem
+só apresenta a galera.
+
+O `Dockerfile` na raiz sobe só o servidor, e o passo a passo está em
+[SERVIDOR.md](SERVIDOR.md). **Servidor público exige senha** (`DISCORDIA_SENHA`):
+sem ela, qualquer um que descobrir o endereço entra na sala e ouve a conversa.
+
 ## Usando com uma VPN de LAN (LANVPN, Hamachi, Radmin, ZeroTier...)
 
 É a forma mais fácil de jogar junto pela internet. Regras:

@@ -200,10 +200,18 @@ Tudo em `%APPDATA%/Discordia/` (`app.getPath('userData')`):
 
 ## Protocolo (WebSocket, JSON)
 
-Cliente → servidor: `identify`, `join`, `leave`, `state`, `signal`, `chat`,
+Cliente → servidor: `auth`, `identify`, `join`, `leave`, `state`, `signal`, `chat`,
 `delete-room`, `rename-room`, `move-room`, `clear-history`, `ping`.
-Servidor → cliente: `hello`, `rooms`, `joined`, `history`, `left`, `peer-join`,
-`peer-leave`, `peer-state`, `signal`, `chat`, `room-renamed`, `pong`.
+Servidor → cliente: `hello`, `auth-ok`, `auth-fail`, `rooms`, `joined`, `history`,
+`left`, `peer-join`, `peer-leave`, `peer-state`, `signal`, `chat`, `room-renamed`, `pong`.
+
+**Senha (só quando configurada).** Sem `senha` no `createServer`, nada muda: quem
+alcança a porta entra, que é o certo para LAN e VPN. Com senha, o `hello` sai com
+`precisaSenha: true` e o socket fica em quarentena — só a mensagem `auth` é lida,
+qualquer outra é descartada, a lista de salas não é enviada, cai depois de 15s
+calado e é desconectado (código 4003) depois de 3 tentativas erradas. A comparação
+é `timingSafeEqual` sobre SHA-256 dos dois lados, para o tempo de resposta não
+entregar nada. O `/health` também para de listar salas nesse modo. Ver `SERVIDOR.md`.
 
 Sobre as salas: `knownRooms` guarda **a ordem** em que elas aparecem na lista, não só
 quais existem — por isso `rename-room` troca o nome na posição em vez de remover e
