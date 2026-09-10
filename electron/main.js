@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, Menu, Tray, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, Menu, Tray, nativeImage, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
@@ -99,7 +99,21 @@ function createWindow() {
   }
 
 
-  mainWindow.on('maximize', () => mainWindow.webContents.send('window:state', { maximized: true }));
+  // Em alguns PCs a janela maximizada fica maior que a area util e a barra de
+  // tarefas cobre a parte de baixo do app. Aqui encaixamos na area util do monitor.
+  const encaixarNaAreaUtil = () => {
+    if (!mainWindow || mainWindow.isFullScreen()) return;
+    const b = mainWindow.getBounds();
+    const area = screen.getDisplayMatching(b).workArea;
+    if (b.width > area.width || b.height > area.height || b.x < area.x || b.y < area.y) {
+      mainWindow.setBounds(area);
+    }
+  };
+
+  mainWindow.on('maximize', () => {
+    setTimeout(encaixarNaAreaUtil, 0);
+    mainWindow.webContents.send('window:state', { maximized: true });
+  });
   mainWindow.on('unmaximize', () => mainWindow.webContents.send('window:state', { maximized: false }));
 
   mainWindow.on('close', (e) => {

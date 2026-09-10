@@ -490,3 +490,5 @@ body.fullscreen .stage{padding:10px}
 .tb-wordmark{height:17px;width:auto;display:block}
 .connect-wordmark{height:34px;width:auto;margin:16px auto 0;display:block}
 .connect-card h1{display:none}
+
+.col-checks{display:flex;flex-direction:column;gap:6px}
