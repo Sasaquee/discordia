@@ -19,6 +19,8 @@
     "cloudflared": "node scripts/baixar-cloudflared.js"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
+    "uiohook-napi": "^1.5.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {
@@ -69,6 +71,16 @@
         "from": "bin/cloudflared.exe",
         "to": "cloudflared.exe"
       }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Sasaquee",
+        "repo": "discordia"
+      }
+    ],
+    "asarUnpack": [
+      "**/node_modules/uiohook-napi/**"
     ]
   }
 }

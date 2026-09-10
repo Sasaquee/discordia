@@ -69,6 +69,9 @@ const S = {
   speaking: false,
   focusKey: null,
   reconnectTries: 0,
+  reconectando: false,
+  pttFalando: false,
+  saindoDeProposito: false,
   micDest: null,         // destino WebAudio: microfone + efeitos sonoros
   fullscreen: false,
   ctxMenu: null,
@@ -289,7 +292,9 @@ function stopMic() {
 
 function applyMicEnabled() {
   if (S.micGain) {
-    const aberto = !S.muted && !S.deafened;
+    // com "apertar para falar" ligado, o microfone so abre com a tecla segurada
+    const pttFechou = !!S.settings.pttLigado && !S.pttFalando;
+    const aberto = !S.muted && !S.deafened && !pttFechou;
     S.micGain.gain.value = aberto ? S.settings.volIn / 100 : 0;
   }
 }
@@ -453,6 +458,9 @@ function setStatus(text, cls) {
 
 function onDisconnected(silent) {
   const wasInApp = !$('appScreen').classList.contains('hidden');
+  // wi-fi oscilou, o tunel piscou, o host reiniciou o app: nao vale jogar a
+  // pessoa para fora da chamada sem tentar voltar
+  if (wasInApp && !S.saindoDeProposito && S.serverUrl) return reconectar();
   teardownAll();
   if (wasInApp) {
     toast('Conexao com o servidor caiu.', 'err');
@@ -460,6 +468,45 @@ function onDisconnected(silent) {
   } else if (!silent) {
     setConnectMsg('Nao foi possivel conectar.', 'err');
   }
+}
+
+/** Espera crescente entre as tentativas: cair e voltar leva alguns segundos. */
+const ESPERAS_RECONEXAO = [1000, 2000, 4000, 6000, 8000];
+
+async function reconectar() {
+  if (S.reconectando) return;
+  S.reconectando = true;
+
+  const url = S.serverUrl;
+  const salaAnterior = S.room;
+  S.ws = null;
+  S.connected = false;
+  clearPeers();          // as conexoes P2P morreram junto com a sinalizacao
+  S.room = null;
+  renderStage();
+  sysMsg('A conexao caiu. Tentando voltar...');
+
+  for (let i = 0; i < ESPERAS_RECONEXAO.length; i++) {
+    S.reconnectTries = i + 1;
+    setStatus(`reconectando ${S.reconnectTries}/${ESPERAS_RECONEXAO.length}`, 'wait');
+    await new Promise((r) => setTimeout(r, ESPERAS_RECONEXAO[i]));
+    if (S.saindoDeProposito) { S.reconectando = false; return; }
+
+    try {
+      await connect(url, { silent: true });
+      S.reconectando = false;
+      S.reconnectTries = 0;
+      toast('Conexao restabelecida.', 'ok');
+      sysMsg('Voltamos.');
+      if (salaAnterior) joinRoom(salaAnterior);
+      return;
+    } catch { /* tenta de novo na proxima volta */ }
+  }
+
+  S.reconectando = false;
+  S.reconnectTries = 0;
+  teardownAll();
+  showConnect('A conexao caiu e nao consegui voltar. Tenta conectar de novo.');
 }
 
 // ---------------------------------------------------------
@@ -1687,6 +1734,62 @@ function teardownAll() {
 }
 
 // ---------------------------------------------------------
+// Apertar para falar
+// O hook do teclado vive no processo principal (so ele enxerga o teclado com
+// o jogo em primeiro plano). Aqui so abrimos e fechamos o microfone.
+// ---------------------------------------------------------
+function ligarPTT() {
+  if (!API.onPtt) return;
+  API.onPtt(({ falando }) => {
+    S.pttFalando = !!falando;
+    applyMicEnabled();
+    const btn = $('btnMic');
+    if (btn) btn.classList.toggle('falando', S.pttFalando);
+  });
+}
+
+async function aplicarConfigPTT() {
+  if (!API.pttConfigurar) return;
+  const res = await API.pttConfigurar({
+    ligado: !!S.settings.pttLigado,
+    tecla: S.settings.pttTecla,
+  });
+  if (!res.ok) {
+    toast(res.error || 'Nao consegui ligar o apertar para falar.', 'err');
+    S.settings.pttLigado = false;
+    $('optPtt').checked = false;
+    saveSettings({ pttLigado: false });
+  }
+  S.pttFalando = false;
+  applyMicEnabled();
+  atualizarTextoPTT();
+}
+
+function atualizarTextoPTT() {
+  const nome = S.settings.pttNome;
+  $('pttTecla').textContent = nome ? nome : 'nenhuma tecla escolhida';
+  $('btnPttTecla').disabled = false;
+}
+
+// ---------------------------------------------------------
+// Atualizacao do app
+// ---------------------------------------------------------
+function barraUpdate(texto, { pronto = false } = {}) {
+  $('updateTexto').textContent = texto;
+  $('btnUpdateInstalar').classList.toggle('hidden', !pronto);
+  $('updateBar').classList.remove('hidden');
+}
+
+function ligarAvisosDeUpdate() {
+  if (!API.onUpdateDisponivel) return;   // versao antiga do preload
+  API.onUpdateDisponivel((d) => barraUpdate('Baixando a versao ' + d.versao + '...'));
+  API.onUpdateProgresso((d) => barraUpdate('Baixando a versao nova: ' + d.pct + '%'));
+  API.onUpdatePronto((d) => barraUpdate('Versao ' + d.versao + ' pronta para instalar', { pronto: true }));
+  $('btnUpdateInstalar').onclick = () => API.updateInstalar();
+  $('btnUpdateFechar').onclick = () => $('updateBar').classList.add('hidden');
+}
+
+// ---------------------------------------------------------
 // Link da internet (tunel)
 // ---------------------------------------------------------
 /** wss:// no lugar de https://: o app fala WebSocket, nao HTTP. */
@@ -1805,6 +1908,7 @@ async function gerarLinkNoConvite() {
  * Se estiver numa chamada, pergunta antes: sair derruba a conversa.
  */
 async function voltarParaHospedagem() {
+  // marca antes de fechar: senao o onclose acha que a queda foi acidente
   if (S.room) {
     const ok = await confirmar({
       titulo: 'Sair do servidor?',
@@ -1813,6 +1917,7 @@ async function voltarParaHospedagem() {
     });
     if (!ok) return;
   }
+  S.saindoDeProposito = true;
   if (S.ws) { const w = S.ws; S.ws = null; try { w.close(); } catch {} }
   teardownAll();
   setStatus('desconectado', 'off');
@@ -1826,6 +1931,7 @@ async function doConnect(url) {
   S.senha = $('inpSenha').value || '';
   saveSettings({ name, server: url, senha: S.senha });
 
+  S.saindoDeProposito = false;
   setConnectMsg('Conectando...');
   const mic = await startMic();
   if (!mic) setConnectMsg('Sem microfone - voce ainda pode ouvir e ver telas.', 'err');
@@ -2458,6 +2564,28 @@ function wireUI() {
     $('btnConnect').disabled = false;
   };
 
+  ligarAvisosDeUpdate();
+  ligarPTT();
+  $('optPtt').checked = !!S.settings.pttLigado;
+  atualizarTextoPTT();
+  if (S.settings.pttLigado) aplicarConfigPTT();
+  $('optPtt').onchange = () => {
+    S.settings.pttLigado = $('optPtt').checked;
+    saveSettings({ pttLigado: S.settings.pttLigado });
+    aplicarConfigPTT();
+  };
+  $('btnPttTecla').onclick = async () => {
+    const btn = $('btnPttTecla');
+    btn.disabled = true;
+    $('pttTecla').textContent = 'aperte a tecla...';
+    const res = await API.pttCapturar();
+    if (!res.ok) { toast(res.error || 'Nao peguei a tecla.', 'err'); atualizarTextoPTT(); return; }
+    S.settings.pttTecla = res.tecla;
+    S.settings.pttNome = res.nome;
+    saveSettings({ pttTecla: res.tecla, pttNome: res.nome });
+    if (S.settings.pttLigado) await aplicarConfigPTT();
+    atualizarTextoPTT();
+  };
   $('btnInvite').innerHTML = ICON.link;
   $('btnInvite').onclick = abrirConvite;
   $('btnInviteTunnel').onclick = gerarLinkNoConvite;

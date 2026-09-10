@@ -97,6 +97,32 @@ Por dentro é o **cloudflared** (`bin/cloudflared.exe`, baixado por
   443; acrescentar `:45070` quebrava a conexão. A porta padrão só entra em `ws://`, e um
   endereço sem esquema vira `ws://` se for IP ou localhost, ou `wss://` se for domínio.
 
+## Reconexão, atualização e apertar para falar
+
+**Reconexão.** Quando a sinalização cai sem ser a pedido (wi-fi oscilou, o túnel piscou,
+o host reiniciou), o app segura a tela da chamada e tenta voltar sozinho com espera
+crescente (1s, 2s, 4s, 6s, 8s), mostrando `reconectando n/5` na barra de título. Ao
+voltar, ele entra de novo na sala em que estava. Sair de propósito marca
+`S.saindoDeProposito`, senão o botão de sair dispararia a reconexão.
+
+**Atualização.** `electron-updater` lendo as Releases do GitHub (`build.publish`). O
+instalador de cada versão já vai anexado lá; o app baixa em segundo plano e só instala
+quando a pessoa clica. **Isso só funciona a partir da versão que publicar o `latest.yml`
+junto do `.exe`** — sem esse arquivo o updater não acha o feed.
+
+**Apertar para falar.** Precisa de hook de teclado do sistema: tecla no renderer só
+chega com o app em foco, e `globalShortcut` avisa quando aperta mas nunca quando solta.
+Por isso o `uiohook-napi` (nativo, vai fora do asar via `asarUnpack`).
+
+O hook enxerga tudo que a pessoa digita, então ele: só liga quando o "apertar para
+falar" é ativado (padrão desligado), compara o código da tecla com a configurada e
+descarta o resto, e não guarda nem envia nada. O microfone é fechado por ganho no
+`applyMicEnabled`, o mesmo caminho do mudo.
+
+Detalhe que vale saber: os atalhos `Ctrl+Shift+M` e `Ctrl+Shift+D` **não são globais** —
+são `keydown` no renderer e só funcionam com o app em foco. Com o hook já no projeto,
+torná-los globais é pouco trabalho.
+
 ## Decisões que não são óbvias
 
 Cada uma destas resolveu um bug real. Mexer nelas sem entender quebra o app.

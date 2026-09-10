@@ -226,6 +226,8 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15);box-shadow:0
 }
 .tb-status.off{color:var(--dim)}
 .tb-status.on{color:var(--good);background:rgba(47,227,166,.10);border-color:rgba(47,227,166,.30)}
+.tb-status.wait{color:var(--warn);background:rgba(255,180,61,.10);border-color:rgba(255,180,61,.30)}
+.tb-status.wait::before{animation:dotPulse 1s ease-in-out infinite}
 .tb-status.on::before{animation:dotPulse 2s ease-in-out infinite}
 .tb-drag{flex:1;height:100%;-webkit-app-region:drag}
 .tb-controls{display:flex;height:100%}
@@ -846,6 +848,34 @@ body.fullscreen .stage{padding:12px}
   display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);
   margin-bottom:7px;font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase;
 }
+
+/* linha da tecla do apertar para falar */
+.ptt-linha{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:2px 0 10px;padding:9px 11px;border-radius:11px;
+  background:var(--sunken);border:1px solid var(--line);font-size:12.5px;color:var(--muted);
+}
+.ptt-linha b{font-family:var(--font-mono);font-size:12px;color:var(--cyan);font-weight:600}
+/* o botao de microfone acende enquanto a tecla esta segurada */
+.ctrl.falando{
+  background:rgba(47,227,166,.14);border-color:rgba(47,227,166,.45);color:var(--good);
+  box-shadow:0 0 18px rgba(47,227,166,.22);
+}
+
+/* ===================== Aviso de versao nova ===================== */
+.update-bar{
+  position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:210;
+  display:flex;align-items:center;gap:11px;padding:10px 12px 10px 15px;border-radius:14px;
+  background:rgba(17,22,41,.97);border:1px solid rgba(69,220,255,.28);
+  box-shadow:var(--shadow);backdrop-filter:blur(16px);font-size:12.5px;
+  animation:slide .22s cubic-bezier(.2,.9,.3,1);
+}
+.update-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--cyan);flex:none;
+  box-shadow:0 0 10px var(--cyan);animation:dotPulse 1.8s ease-in-out infinite;
+}
+.update-x{color:var(--dim);font-size:18px;line-height:1;width:24px;height:24px;border-radius:7px}
+.update-x:hover{background:var(--raised);color:var(--text)}
 
 /* ===================== Toasts ===================== */
 .toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:9px;z-index:200}

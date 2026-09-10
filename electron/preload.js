@@ -32,6 +32,18 @@ contextBridge.exposeInMainWorld('discordia', {
   // area de transferencia
   copiar: (texto) => ipcRenderer.invoke('clipboard:write', texto),
 
+  // apertar para falar
+  pttConfigurar: (opts) => ipcRenderer.invoke('ptt:configurar', opts || {}),
+  pttCapturar: () => ipcRenderer.invoke('ptt:capturar'),
+  onPtt: (cb) => ipcRenderer.on('ptt:estado', (_e, d) => cb(d)),
+
+  // atualizacao do app
+  updateChecar: () => ipcRenderer.invoke('update:checar'),
+  updateInstalar: () => ipcRenderer.invoke('update:instalar'),
+  onUpdateDisponivel: (cb) => ipcRenderer.on('update:disponivel', (_e, d) => cb(d)),
+  onUpdateProgresso: (cb) => ipcRenderer.on('update:progresso', (_e, d) => cb(d)),
+  onUpdatePronto: (cb) => ipcRenderer.on('update:pronto', (_e, d) => cb(d)),
+
   // app / janela
   appInfo: () => ipcRenderer.invoke('app:info'),
   minimize: () => ipcRenderer.send('window:minimize'),
