@@ -155,7 +155,7 @@ function beep(freqs, dur = 0.12, gain = 0.06) {
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(gain, t + 0.015);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g).connect(ctx.destination);
+      o.connect(g).connect(saidaAudio());
       o.start(t);
       o.stop(t + dur + 0.02);
       t += dur * 0.8;
@@ -171,9 +171,25 @@ const sfx = {
 };
 
 function ensureAudioCtx() {
-  if (!S.audioCtx || S.audioCtx.state === 'closed') S.audioCtx = new AudioContext();
+  if (!S.audioCtx || S.audioCtx.state === 'closed') {
+    S.audioCtx = new AudioContext();
+    S.saidaMix = null;
+  }
   if (S.audioCtx.state === 'suspended') S.audioCtx.resume();
+  if (!S.saidaMix) {
+    // Tudo que o app toca passa por este no. Ele e a referencia usada para tirar
+    // as vozes da chamada do audio capturado da tela (ver eco-worklet.js).
+    S.saidaMix = S.audioCtx.createGain();
+    S.saidaMix.connect(S.audioCtx.destination);
+    S.audioCtx.audioWorklet.addModule('eco-worklet.js').catch(() => {});
+  }
   return S.audioCtx;
+}
+
+/** Saida audivel do app (nunca ligue nada direto no ctx.destination). */
+function saidaAudio() {
+  ensureAudioCtx();
+  return S.saidaMix;
 }
 
 // ---------------------------------------------------------
@@ -528,6 +544,28 @@ function tuneOpus(sdp) {
   return out.join('\r\n');
 }
 
+/**
+ * Poe o H264 na frente em todas as trilhas de video da conexao.
+ * O H264 costuma usar o codificador do hardware e segura 1080p60 muito melhor que
+ * o VP8 por software (que cai para ~960x540@18fps). Precisa ser pedido pelos DOIS
+ * lados: quem responde a negociacao tambem escolhe o codec.
+ */
+function preferirH264(pc) {
+  try {
+    const caps = RTCRtpSender.getCapabilities('video');
+    if (!caps) return;
+    const h264 = caps.codecs.filter((c) => /h264/i.test(c.mimeType));
+    if (!h264.length) return;
+    const resto = caps.codecs.filter((c) => !/h264/i.test(c.mimeType));
+    for (const tr of pc.getTransceivers()) {
+      const tipo = (tr.receiver && tr.receiver.track && tr.receiver.track.kind) ||
+        (tr.sender && tr.sender.track && tr.sender.track.kind);
+      if (tipo && tipo !== 'video') continue;
+      if (tr.setCodecPreferences) tr.setCodecPreferences([...h264, ...resto]);
+    }
+  } catch { /* navegador sem suporte: segue no codec padrao */ }
+}
+
 function newPeer(info) {
   return {
     id: info.id,
@@ -569,6 +607,8 @@ function createPC(p) {
   // se ja estou compartilhando tela/camera, manda tambem
   if (S.screenStream) for (const t of S.screenStream.getTracks()) p.senders.push(pc.addTrack(t, S.screenStream));
   if (S.camStream) for (const t of S.camStream.getTracks()) p.senders.push(pc.addTrack(t, S.camStream));
+
+  preferirH264(pc);
 
   pc.onicecandidate = (ev) => {
     if (ev.candidate) send({ type: 'signal', to: p.id, data: { candidate: ev.candidate } });
@@ -615,6 +655,7 @@ function createPC(p) {
         }
       };
     }
+    preferirH264(pc);
     syncPeerMedia(p);
     renderStage();
   };
@@ -699,7 +740,7 @@ function playRemote(key, stream, { peerId, kind }) {
   analyser.fftSize = 512;
   src.connect(gain);
   gain.connect(analyser);
-  gain.connect(ctx.destination);
+  gain.connect(saidaAudio());
 
   const out = { stream, el, src, gain, analyser, peerId, kind };
   audioOuts.set(key, out);
@@ -957,9 +998,12 @@ function activeVideos() {
   return videos;
 }
 
+let assinaturaPalco = '';
+
 function renderStage() {
   const stage = $('stage');
   if (!S.room) {
+    assinaturaPalco = '';
     stage.innerHTML = '';
     EMPTY_STATE.classList.remove('hidden');
     stage.appendChild(EMPTY_STATE);
@@ -978,6 +1022,16 @@ function renderStage() {
   }
 
   if (S.focusKey && !videos.some((v) => v.key === S.focusKey)) S.focusKey = null;
+
+  // Reconstruir o palco re-anexa os <video> no DOM e o decodificador engasga.
+  // Se nada mudou de fato (so alguem mutou, por exemplo), nao mexe no DOM.
+  const assinatura = JSON.stringify([
+    S.settings.layout, S.settings.tileSize, S.settings.hideEmpty, S.focusKey,
+    videos.map((v) => v.key + '|' + v.label),
+    people.map((p) => p.id + '|' + p.name + '|' + (p.muted ? 1 : 0) + '|' + (p.you ? 1 : 0)),
+  ]);
+  if (assinatura === assinaturaPalco && stage.children.length) return;
+  assinaturaPalco = assinatura;
 
   const layout = S.settings.layout || 'auto';
   const tamanho = S.settings.tileSize || 300;
@@ -1237,9 +1291,69 @@ function renderPicker() {
   }
 }
 
+/**
+ * Passa o audio capturado da tela pelo cancelador de eco e devolve uma stream com
+ * o mesmo video, mas com o audio limpo. Se algo falhar, devolve a stream original -
+ * melhor ter eco do que ficar sem o som do jogo.
+ */
+async function limparEcoDaTela(stream) {
+  const faixaAudio = stream.getAudioTracks()[0];
+  if (!faixaAudio) return stream;
+  try {
+    const ctx = ensureAudioCtx();
+    await ctx.audioWorklet.addModule('eco-worklet.js');
+
+    const origem = ctx.createMediaStreamSource(new MediaStream([faixaAudio]));
+    const no = new AudioWorkletNode(ctx, 'cancelador-eco', {
+      numberOfInputs: 2,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      channelCount: 2,
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
+    });
+    no.port.onmessage = (e) => {
+      if (e.data && e.data.atrasoMs != null) {
+        console.log('[eco] atraso medido:', e.data.atrasoMs, 'ms');
+      }
+      if (e.data && e.data.erle != null) {
+        console.log('[eco] reducao:', e.data.erle, 'dB');
+      }
+    };
+    origem.connect(no, 0, 0);
+    saidaAudio().connect(no, 0, 1);   // referencia: o que estamos tocando
+
+    const destino = ctx.createMediaStreamDestination();
+    no.connect(destino);
+
+    S.ecoNo = no;
+    S.ecoOrigem = origem;
+    S.ecoDestino = destino;
+
+    const limpo = new MediaStream([
+      ...stream.getVideoTracks(),
+      destino.stream.getAudioTracks()[0],
+    ]);
+    // guarda a original para conseguir parar tudo depois
+    limpo._origem = stream;
+    return limpo;
+  } catch (err) {
+    console.warn('cancelador de eco indisponivel:', err.message);
+    return stream;
+  }
+}
+
+function desligarCancelador() {
+  try { S.ecoOrigem && S.ecoOrigem.disconnect(); } catch {}
+  try { S.saidaMix && S.ecoNo && S.saidaMix.disconnect(S.ecoNo); } catch {}
+  try { S.ecoNo && S.ecoNo.disconnect(); } catch {}
+  S.ecoNo = null; S.ecoOrigem = null; S.ecoDestino = null;
+}
+
 async function startShare() {
   if (!pickerSel) return;
   const withAudio = $('shareAudio').checked;
+  const modoCinema = $('muteSelf').checked;
   const q = $('shareQuality').value;
   // So limitamos a ALTURA. Fixar largura+altura faz o Chromium recortar quando a
   // proporcao do monitor e diferente (ultrawide, 16:10) - era o "nao pega a tela toda".
@@ -1268,19 +1382,32 @@ async function startShare() {
       } : false,
     });
 
-    S.screenStream = stream;
+    // tira as vozes da chamada do audio capturado (senao todo mundo se ouve de volta)
+    const limpo = await limparEcoDaTela(stream);
+
+    S.screenStream = limpo;
     S.sharing = true;
+
+    // Modo cinema: zera a saida do app enquanto compartilha. Como as vozes deixam de
+    // tocar, elas nao entram no loopback - eco zero. Em troca, voce nao ouve a galera.
+    if (modoCinema) {
+      saidaAudio().gain.value = 0;
+      S.modoCinema = true;
+      toast('Modo cinema: voce nao vai ouvir a chamada enquanto compartilha.', 'ok');
+    }
 
     // prioriza fluidez pro video da tela
     for (const p of S.peers.values()) {
-      for (const t of stream.getTracks()) {
-        const sender = p.pc.addTrack(t, stream);
+      for (const t of limpo.getTracks()) {
+        const sender = p.pc.addTrack(t, limpo);
         p.senders.push(sender);
         try {
           const par = sender.getParameters();
           if (!par.encodings || !par.encodings.length) par.encodings = [{}];
           if (t.kind === 'video') {
             par.encodings[0].maxBitrate = preset.bitrate;
+            par.encodings[0].maxFramerate = preset.fps;
+            par.encodings[0].networkPriority = 'high';
             par.degradationPreference = 'maintain-framerate';
           } else {
             par.encodings[0].maxBitrate = 160_000; // audio de midia merece folga
@@ -1290,7 +1417,13 @@ async function startShare() {
       }
     }
 
-    stream.getVideoTracks()[0].addEventListener('ended', () => stopShare());
+    // 'motion' avisa o codificador que e conteudo em movimento: ele prefere manter
+    // a taxa de quadros a manter detalhe parado. Faz diferenca grande em jogo.
+    for (const p of S.peers.values()) preferirH264(p.pc);
+
+    const faixaVideo = limpo.getVideoTracks()[0];
+    faixaVideo.contentHint = 'motion';
+    faixaVideo.addEventListener('ended', () => stopShare());
 
     pushState();
     updateControlUI();
@@ -1316,7 +1449,11 @@ function stopShare() {
       }
     }
   }
+  desligarCancelador();
+  if (S.modoCinema) { saidaAudio().gain.value = 1; S.modoCinema = false; }
   stream.getTracks().forEach((t) => t.stop());
+  // o audio cru do Windows fica na stream original, antes do cancelador
+  if (stream._origem) stream._origem.getTracks().forEach((t) => t.stop());
   S.screenStream = null;
   S.sharing = false;
   if (S.focusKey === 'self:screen') S.focusKey = null;
@@ -1345,6 +1482,7 @@ async function toggleCam() {
     for (const p of S.peers.values()) {
       for (const t of stream.getTracks()) p.senders.push(p.pc.addTrack(t, stream));
     }
+    for (const p of S.peers.values()) preferirH264(p.pc);
     stream.getVideoTracks()[0].addEventListener('ended', () => stopCam());
     pushState();
     updateControlUI();
@@ -1450,7 +1588,12 @@ function setConnectMsg(text, cls) {
 
 function teardownAll() {
   clearPeers();
-  if (S.screenStream) { S.screenStream.getTracks().forEach((t) => t.stop()); S.screenStream = null; }
+  desligarCancelador();
+  if (S.screenStream) {
+    S.screenStream.getTracks().forEach((t) => t.stop());
+    if (S.screenStream._origem) S.screenStream._origem.getTracks().forEach((t) => t.stop());
+    S.screenStream = null;
+  }
   if (S.camStream) { S.camStream.getTracks().forEach((t) => t.stop()); S.camStream = null; }
   stopMic();
   videoTiles.forEach((t) => t.el.remove());
@@ -1944,7 +2087,7 @@ async function tocarSom(id) {
     const g = ctx.createGain();
     g.gain.value = (S.settings.boardVol == null ? 80 : S.settings.boardVol) / 100;
     src.connect(g);
-    g.connect(ctx.destination);                 // eu escuto
+    g.connect(saidaAudio());                    // eu escuto
     if (S.micDest) g.connect(S.micDest);        // a sala escuta (mesmo mutado)
     src.start();
     const btn = [...document.querySelectorAll('.board-item')][board.itens.indexOf(it)];

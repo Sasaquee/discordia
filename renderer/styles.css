@@ -138,6 +138,9 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15);box-shadow:0
   background-size:12px,cover;background-position:center;background-repeat:no-repeat;
 }
 .check:hover input[type=checkbox]{border-color:var(--line-3)}
+/* dois checkboxes empilhados no rodape do seletor de tela */
+.col-checks{display:flex;flex-direction:column;gap:8px;min-width:0}
+.col-checks .check{line-height:1.35}
 
 .switch{display:flex;align-items:center;gap:11px;font-size:13px;color:var(--muted);cursor:pointer;padding:8px 0}
 .switch:hover{color:var(--text)}

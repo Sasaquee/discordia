@@ -216,10 +216,16 @@
     </div>
     <div class="source-grid" id="sourceGrid"></div>
     <div class="modal-foot">
-      <label class="check">
-        <input type="checkbox" id="shareAudio" checked />
-        <span>Compartilhar o audio do computador</span>
-      </label>
+      <div class="col-checks">
+        <label class="check">
+          <input type="checkbox" id="shareAudio" checked />
+          <span>Compartilhar o audio do computador</span>
+        </label>
+        <label class="check" title="Sem as vozes tocando, elas nao entram na captura">
+          <input type="checkbox" id="muteSelf" />
+          <span>Modo cinema: silenciar a chamada aqui (zero eco)</span>
+        </label>
+      </div>
       <div class="row-end">
         <label class="check inline">
           <span>Qualidade</span>
