@@ -74,6 +74,29 @@ eles em vez de cravar cor no componente.
 - **Movimento**: só na tela de conexão (a faixa `.connect-eq`), no indicador de fala e nos
   hovers. Tudo desligado em `prefers-reduced-motion`.
 
+## Link da internet (túnel)
+
+Quem hospeda gera um link e manda para os amigos, que entram de qualquer rede. Isso
+substitui a VPN de LAN e o encaminhamento de porta no roteador.
+
+Por dentro é o **cloudflared** (`bin/cloudflared.exe`, baixado por
+`npm run cloudflared` e empacotado via `extraResources`). O `main.js` roda
+`cloudflared tunnel --url http://localhost:<porta>` e pesca no log a URL
+`https://*.trycloudflare.com`, que o renderer converte para `wss://`.
+
+- **Só a sinalização passa pelo túnel.** Voz, vídeo e tela continuam P2P, direto entre
+  os PCs. Medido: a ida e volta da sinalização pelo túnel fica em ~28 ms contra ~1 ms
+  em rede local, e isso só afeta entrar em sala e chat.
+- **O link morre quando o app fecha** — é um *quick tunnel*, sem conta na Cloudflare.
+  `before-quit` mata o processo; se o cloudflared cair sozinho, o main avisa o renderer
+  pelo evento `tunnel:down`.
+- **O convite mora dentro do app** (`Convidar a galera`, na barra lateral), não só na
+  tela de hospedagem: o botão *Hospedar no meu PC* entra na chamada logo em seguida e
+  aquela tela sai da frente, então o link precisava continuar ao alcance.
+- **`normalizeUrl` não gruda a porta padrão em `wss://`.** Um endereço de túnel roda na
+  443; acrescentar `:45070` quebrava a conexão. A porta padrão só entra em `ws://`, e um
+  endereço sem esquema vira `ws://` se for IP ou localhost, ou `wss://` se for domínio.
+
 ## Decisões que não são óbvias
 
 Cada uma destas resolveu um bug real. Mexer nelas sem entender quebra o app.

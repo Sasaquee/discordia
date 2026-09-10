@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, Menu, Tray, nativeImage, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { createServer, DEFAULT_PORT, localIPs } = require('../server/server');
 
 /**
@@ -192,7 +192,7 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('before-quit', () => { quitting = true; });
+app.on('before-quit', () => { quitting = true; pararTunel(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 // ---------------- IPC ----------------
@@ -263,6 +263,78 @@ ipcMain.handle('server:status', () => {
   if (!embeddedServer) return { running: false, ips: localIPs(), defaultPort: DEFAULT_PORT };
   return { running: true, ...embeddedServer.info, stats: embeddedServer.stats };
 });
+
+// ---- link da internet (tunel) ----
+// Em vez de VPN ou porta liberada no roteador: o cloudflared abre uma saida a
+// partir daqui de dentro e devolve um endereco publico. So a sinalizacao passa
+// por ele - voz, video e tela continuam indo direto de um PC para o outro.
+let tunel = null;   // { proc, url }
+
+function caminhoCloudflared() {
+  const nome = 'cloudflared.exe';
+  return app.isPackaged
+    ? path.join(process.resourcesPath, nome)
+    : path.join(__dirname, '..', 'bin', nome);
+}
+
+function pararTunel() {
+  if (!tunel) return;
+  const { proc } = tunel;
+  tunel = null;
+  try { proc.kill(); } catch {}
+}
+
+ipcMain.handle('tunnel:start', async (_e, { port } = {}) => {
+  if (tunel && tunel.url) return { ok: true, url: tunel.url, reaproveitado: true };
+  if (!embeddedServer) return { ok: false, error: 'Ligue o servidor neste PC antes de gerar o link.' };
+
+  const exe = caminhoCloudflared();
+  if (!fs.existsSync(exe)) {
+    return { ok: false, error: 'O cloudflared nao veio junto nesta instalacao. Reinstale o app pela versao mais nova.' };
+  }
+  const alvo = 'http://localhost:' + (Number(port) || embeddedServer.info.port);
+
+  return await new Promise((resolve) => {
+    let proc;
+    try {
+      proc = spawn(exe, ['tunnel', '--url', alvo, '--no-autoupdate'], { windowsHide: true });
+    } catch (err) {
+      return resolve({ ok: false, error: 'Nao consegui abrir o cloudflared: ' + err.message });
+    }
+    tunel = { proc, url: null };
+
+    let respondido = false;
+    const responder = (r) => { if (!respondido) { respondido = true; clearTimeout(prazo); resolve(r); } };
+
+    // a URL sai no meio do log de inicializacao, e vem pelo stderr
+    const olhar = (buf) => {
+      const texto = buf.toString();
+      const achou = texto.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
+      if (achou && tunel) {
+        tunel.url = achou[0];
+        responder({ ok: true, url: achou[0] });
+      }
+    };
+    proc.stdout.on('data', olhar);
+    proc.stderr.on('data', olhar);
+
+    proc.on('error', (err) => { pararTunel(); responder({ ok: false, error: err.message }); });
+    proc.on('exit', (codigo) => {
+      const caiuSozinho = tunel && tunel.proc === proc;
+      if (caiuSozinho) tunel = null;
+      responder({ ok: false, error: 'O cloudflared saiu antes de dar o link (codigo ' + codigo + ').' });
+      if (caiuSozinho && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('tunnel:down');
+    });
+
+    const prazo = setTimeout(() => {
+      pararTunel();
+      responder({ ok: false, error: 'O link demorou demais para ficar pronto. Tenta de novo.' });
+    }, 30000);
+  });
+});
+
+ipcMain.handle('tunnel:stop', () => { pararTunel(); return { ok: true }; });
+ipcMain.handle('tunnel:status', () => ({ ligado: !!(tunel && tunel.url), url: tunel ? tunel.url : null }));
 
 // ---- firewall do Windows (necessario para hospedar dentro da VPN) ----
 const FW_RULE = 'Discordia';

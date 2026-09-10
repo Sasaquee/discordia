@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('discordia', {
   stopServer: () => ipcRenderer.invoke('server:stop'),
   serverStatus: () => ipcRenderer.invoke('server:status'),
 
+  // link da internet (tunel) - entrar sem VPN e sem abrir porta no roteador
+  tunnelStart: (opts) => ipcRenderer.invoke('tunnel:start', opts || {}),
+  tunnelStop: () => ipcRenderer.invoke('tunnel:stop'),
+  tunnelStatus: () => ipcRenderer.invoke('tunnel:status'),
+  onTunnelDown: (cb) => ipcRenderer.on('tunnel:down', () => cb()),
+
   // firewall (necessario para hospedar dentro da VPN)
   firewallStatus: () => ipcRenderer.invoke('firewall:status'),
   firewallAllow: (opts) => ipcRenderer.invoke('firewall:allow', opts || {}),
