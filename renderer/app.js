@@ -30,6 +30,7 @@ const ICON = {
   sticker: '<svg viewBox="0 0 24 24"><path d="M13 2a9 9 0 0 0-9 9v2a9 9 0 0 0 9 9c.5 0 1 0 1.4-.1V16a2 2 0 0 1 2-2h4.5c.1-.5.1-1 .1-1.5A9 9 0 0 0 13 2zm3.5 14h4l-4.5 4.5V16h.5z"/></svg>',
   board: '<svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1 1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 7a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V8a1 1 0 0 1 1-1zm8 0a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V8a1 1 0 0 1 1-1zM4 10a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zm16 0a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1z"/></svg>',
   user: '<svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.4-8 5.3V22h16v-2.7c0-2.9-3.6-5.3-8-5.3z"/></svg>',
+  link: '<svg viewBox="0 0 24 24"><path d="M10.6 13.4a1 1 0 0 1 0-1.4l1.4-1.4a1 1 0 0 1 1.4 1.4l-1.4 1.4a1 1 0 0 1-1.4 0zM8.5 17.7l-1.2 1.2a3 3 0 0 1-4.2-4.2l3.5-3.5a3 3 0 0 1 4.2 0 1 1 0 0 0 1.4-1.4 5 5 0 0 0-7 0l-3.5 3.5a5 5 0 0 0 7 7l1.2-1.2a1 1 0 1 0-1.4-1.4zm12.2-14.4a5 5 0 0 0-7 0l-1.2 1.2a1 1 0 0 0 1.4 1.4l1.2-1.2a3 3 0 0 1 4.2 4.2l-3.5 3.5a3 3 0 0 1-4.2 0 1 1 0 1 0-1.4 1.4 5 5 0 0 0 7 0l3.5-3.5a5 5 0 0 0 0-7z"/></svg>',
   lapis: '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>',
   lixo: '<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
   limpar: '<svg viewBox="0 0 24 24"><path d="M15.1 3.9a2 2 0 0 0-2.8 0L3 13.2V21h7.8l9.3-9.3a2 2 0 0 0 0-2.8l-5-5zM9.9 19H5v-4.9l5.4-5.4 4.9 4.9L9.9 19z"/></svg>',
@@ -345,14 +346,26 @@ function markSpeaking(id, on) {
 // ---------------------------------------------------------
 // Conexao com o servidor
 // ---------------------------------------------------------
+/**
+ * Aceita o que a pessoa colar: IP da LAN, endereco com porta, ou o link do
+ * tunel (que vem como https:// e roda na 443).
+ * A porta padrao so entra em `ws://`: grudar `:45070` num dominio com TLS
+ * quebra a conexao, e era o que acontecia com o link da internet.
+ */
 function normalizeUrl(raw) {
   let u = String(raw || '').trim();
   if (!u) return '';
+  u = u.replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
+
   if (!/^wss?:\/\//i.test(u)) {
-    u = u.replace(/^https?:\/\//i, '');
-    u = 'ws://' + u;
+    // sem esquema: IP e localhost sao rede local (ws); dominio e servidor de fora (wss)
+    const host = u.split(/[/:]/)[0];
+    const local = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || /^localhost$/i.test(host) || !host.includes('.');
+    u = (local ? 'ws://' : 'wss://') + u;
   }
-  if (!/:\d+(\/|$)/.test(u)) u += ':' + DEFAULT_PORT;
+
+  const semEsquema = u.replace(/^wss?:\/\//i, '');
+  if (/^ws:\/\//i.test(u) && !/:\d+(\/|$)/.test(semEsquema)) u += ':' + DEFAULT_PORT;
   return u.replace(/\/+$/, '');
 }
 
@@ -1665,6 +1678,120 @@ function teardownAll() {
   $('chatLog').innerHTML = '';
 }
 
+// ---------------------------------------------------------
+// Link da internet (tunel)
+// ---------------------------------------------------------
+/** wss:// no lugar de https://: o app fala WebSocket, nao HTTP. */
+const linkDoTunel = (url) => String(url || '').replace(/^https:/i, 'wss:');
+
+function avisoTunel(texto, tipo) {
+  const n = $('tunnelHint');
+  n.textContent = texto || '';
+  n.className = 'convite-hint' + (tipo ? ' ' + tipo : '') + (texto ? '' : ' hidden');
+}
+
+function mostrarTunel(url) {
+  $('tunnelUrl').textContent = linkDoTunel(url);
+  $('tunnelBox').classList.remove('hidden');
+  $('btnTunnel').textContent = 'Gerar outro';
+  avisoTunel('Esse link vale enquanto o app estiver aberto. Fechou, tem que gerar outro.', 'ok');
+}
+
+async function gerarLinkDoTunel() {
+  const btn = $('btnTunnel');
+  const antes = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Gerando...';
+  avisoTunel('Abrindo a saida para a internet, leva uns segundos.');
+  try {
+    const res = await API.tunnelStart({});
+    if (!res.ok) {
+      avisoTunel(res.error || 'Nao consegui gerar o link.', 'err');
+      btn.textContent = antes;
+      return;
+    }
+    mostrarTunel(res.url);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------
+// Convite (dentro do app)
+// Depois de hospedar o app entra na chamada e a tela de hospedagem sai da
+// frente - o link precisa continuar ao alcance da mao.
+// ---------------------------------------------------------
+async function abrirConvite() {
+  const st = await API.serverStatus();
+  const hospedando = !!st.running;
+  $('inviteHost').classList.toggle('hidden', !hospedando);
+  $('inviteGuest').classList.toggle('hidden', hospedando);
+
+  if (hospedando) {
+    const lista = $('inviteAddrs');
+    lista.innerHTML = '';
+    for (const ip of [...(st.addresses || []), { address: 'localhost', iface: 'este PC', vpn: false }]) {
+      const url = `ws://${ip.address}:${st.port}`;
+      const row = el('div', 'addr' + (ip.vpn ? ' is-vpn' : ''));
+      const meta = el('div', 'meta');
+      const sp = document.createElement('span');
+      sp.textContent = url;
+      meta.appendChild(sp);
+      if (ip.vpn) meta.appendChild(el('span', 'tag-vpn', 'VPN'));
+      const iface = el('span', 'iface');
+      iface.textContent = ip.iface;
+      meta.appendChild(iface);
+      row.appendChild(meta);
+      const copiar = document.createElement('button');
+      copiar.textContent = 'copiar';
+      copiar.onclick = async () => {
+        try { await navigator.clipboard.writeText(url); copiar.textContent = 'copiado'; } catch {}
+        setTimeout(() => { copiar.textContent = 'copiar'; }, 1600);
+      };
+      row.appendChild(copiar);
+      lista.appendChild(row);
+    }
+    const tunel = await API.tunnelStatus();
+    if (tunel.ligado) {
+      $('inviteTunnelUrl').textContent = linkDoTunel(tunel.url);
+      $('inviteTunnelBox').classList.remove('hidden');
+      $('btnInviteTunnel').textContent = 'Gerar outro';
+    } else {
+      $('inviteTunnelBox').classList.add('hidden');
+      $('btnInviteTunnel').textContent = 'Gerar link';
+    }
+  } else {
+    $('inviteGuestUrl').textContent = S.serverUrl || '';
+  }
+  $('inviteModal').classList.remove('hidden');
+}
+
+async function gerarLinkNoConvite() {
+  const btn = $('btnInviteTunnel');
+  const antes = btn.textContent;
+  const hint = $('inviteTunnelHint');
+  btn.disabled = true;
+  btn.textContent = 'Gerando...';
+  hint.textContent = 'Abrindo a saida para a internet, leva uns segundos.';
+  hint.className = 'convite-hint';
+  try {
+    const res = await API.tunnelStart({});
+    if (!res.ok) {
+      hint.textContent = res.error || 'Nao consegui gerar o link.';
+      hint.className = 'convite-hint err';
+      btn.textContent = antes;
+      return;
+    }
+    $('inviteTunnelUrl').textContent = linkDoTunel(res.url);
+    $('inviteTunnelBox').classList.remove('hidden');
+    btn.textContent = 'Gerar outro';
+    hint.textContent = 'Esse link vale enquanto o app estiver aberto. Fechou, tem que gerar outro.';
+    hint.className = 'convite-hint ok';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 /**
  * Sai do servidor e volta para a tela de conexao/hospedagem.
  * Se estiver numa chamada, pergunta antes: sair derruba a conversa.
@@ -2322,6 +2449,33 @@ function wireUI() {
     await doConnect(url);
     $('btnConnect').disabled = false;
   };
+
+  $('btnInvite').innerHTML = ICON.link;
+  $('btnInvite').onclick = abrirConvite;
+  $('btnInviteTunnel').onclick = gerarLinkNoConvite;
+  const copiarDo = (idTexto, botao) => async () => {
+    try {
+      await navigator.clipboard.writeText($(idTexto).textContent);
+      $(botao).textContent = 'Copiado';
+      setTimeout(() => { $(botao).textContent = 'Copiar'; }, 1600);
+    } catch {}
+  };
+  $('btnInviteCopy').onclick = copiarDo('inviteTunnelUrl', 'btnInviteCopy');
+  $('btnInviteGuestCopy').onclick = copiarDo('inviteGuestUrl', 'btnInviteGuestCopy');
+
+  $('btnTunnel').onclick = gerarLinkDoTunel;
+  $('btnCopyTunnel').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText($('tunnelUrl').textContent);
+      $('btnCopyTunnel').textContent = 'Copiado';
+      setTimeout(() => { $('btnCopyTunnel').textContent = 'Copiar'; }, 1600);
+    } catch { avisoTunel('Nao consegui copiar. Seleciona o texto e copia na mao.', 'err'); }
+  };
+  API.onTunnelDown(() => {
+    $('tunnelBox').classList.add('hidden');
+    $('btnTunnel').textContent = 'Gerar link';
+    avisoTunel('O link caiu. Gera outro quando precisar.', 'err');
+  });
 
   $('btnHost').onclick = async () => {
     $('btnHost').disabled = true;

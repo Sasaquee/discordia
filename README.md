@@ -47,9 +47,26 @@ Rode o `Discordia-Setup-<versão>.exe` da pasta `dist/` (ou da aba Releases).
 3. **Os outros** colam esse endereço no campo *Servidor* e clicam **Conectar**.
 4. Todo mundo cai na sala **Geral**. Clique em **Tela** para compartilhar.
 
-Na mesma rede/Wi-Fi ou dentro de uma VPN de LAN funciona direto. Pela internet aberta,
-quem hospeda precisa liberar a porta **45070 (TCP)** no roteador — ou rodar o servidor
-numa VPS:
+Na mesma rede/Wi-Fi ou dentro de uma VPN de LAN funciona direto.
+
+### Pela internet, sem VPN e sem mexer no roteador
+
+Quem hospeda clica em **Convidar a galera** (o ícone de corrente ao lado do nome do
+servidor) e depois em **Gerar link**. Sai um endereço assim:
+
+```
+wss://alguma-coisa-aleatoria.trycloudflare.com
+```
+
+Manda esse link no grupo. Os amigos colam no campo *Servidor* e clicam em Conectar,
+de qualquer rede, sem instalar VPN nenhuma e sem liberar porta no roteador.
+
+O link é uma saída aberta pelo próprio app (Cloudflare Tunnel) e **vale enquanto o app
+estiver aberto** — fechou, é só gerar outro. Só a sinalização passa por ali: voz, vídeo
+e tela continuam indo direto de um PC para o outro, como sempre.
+
+Quem preferir o jeito antigo pode liberar a porta **45070 (TCP)** no roteador, ou rodar
+o servidor numa VPS:
 
 ```bash
 node server/server.js 45070

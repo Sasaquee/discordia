@@ -65,7 +65,23 @@
 
     <div id="hostInfo" class="host-info hidden">
       <div class="host-title">Servidor rodando neste PC</div>
-      <div class="host-sub">Passe um destes enderecos para os seus amigos:</div>
+
+      <div class="convite">
+        <div class="convite-topo">
+          <div>
+            <div class="convite-titulo">Link para a galera entrar</div>
+            <div class="convite-sub">Funciona pela internet, sem VPN e sem mexer no roteador</div>
+          </div>
+          <button class="btn primary small" id="btnTunnel">Gerar link</button>
+        </div>
+        <div id="tunnelBox" class="tunnel-box hidden">
+          <code id="tunnelUrl" class="tunnel-url"></code>
+          <button class="btn ghost small" id="btnCopyTunnel">Copiar</button>
+        </div>
+        <div id="tunnelHint" class="convite-hint hidden"></div>
+      </div>
+
+      <div class="host-sub">Ou, se todo mundo esta na mesma rede ou VPN:</div>
       <div id="hostAddrs" class="host-addrs"></div>
       <div id="fwBox" class="fw-box hidden">
         <span id="fwText">O firewall do Windows pode bloquear as conexoes dos seus amigos.</span>
@@ -88,6 +104,7 @@
         <div class="server-name" id="serverName">Servidor</div>
         <div class="server-sub" id="serverSub">conectado</div>
       </div>
+      <button class="icon-btn" id="btnInvite" title="Convidar a galera"></button>
       <button class="icon-btn" id="btnServerBack" title="Voltar para a tela de hospedagem"></button>
     </div>
 
@@ -406,6 +423,49 @@
     <div class="modal-foot">
       <button class="btn ghost" id="confirmCancel">Cancelar</button>
       <button class="btn danger" id="confirmOk">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: CONVIDAR ================= -->
+<div class="modal-back hidden" id="inviteModal">
+  <div class="modal small">
+    <div class="modal-head">
+      <h3>Convidar a galera</h3>
+      <button class="modal-x" data-close="inviteModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="inviteHost" class="hidden">
+        <div class="convite">
+          <div class="convite-topo">
+            <div>
+              <div class="convite-titulo">Link para a galera entrar</div>
+              <div class="convite-sub">Funciona pela internet, sem VPN e sem mexer no roteador</div>
+            </div>
+            <button class="btn primary small" id="btnInviteTunnel">Gerar link</button>
+          </div>
+          <div id="inviteTunnelBox" class="tunnel-box hidden">
+            <code id="inviteTunnelUrl" class="tunnel-url"></code>
+            <button class="btn ghost small" id="btnInviteCopy">Copiar</button>
+          </div>
+          <div id="inviteTunnelHint" class="convite-hint hidden"></div>
+        </div>
+        <div class="host-sub">Ou, na mesma rede ou VPN:</div>
+        <div id="inviteAddrs" class="host-addrs"></div>
+      </div>
+
+      <div id="inviteGuest" class="hidden">
+        <div class="host-sub">Voce esta neste servidor. Passe o mesmo endereco para quem quiser entrar:</div>
+        <div class="tunnel-box">
+          <code id="inviteGuestUrl" class="tunnel-url"></code>
+          <button class="btn ghost small" id="btnInviteGuestCopy">Copiar</button>
+        </div>
+        <div class="convite-hint">Quem hospeda e que consegue gerar o link da internet, no proprio app dele.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div></div>
+      <button class="btn primary" data-close="inviteModal">Pronto</button>
     </div>
   </div>
 </div>

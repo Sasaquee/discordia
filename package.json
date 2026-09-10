@@ -13,9 +13,10 @@
     "start": "electron .",
     "icon": "electron scripts/make-icon.js",
     "server": "node server/server.js",
-    "dist": "npm run icon && electron-builder --win nsis --x64",
+    "dist": "npm run icon && npm run cloudflared && electron-builder --win nsis --x64",
     "pack": "electron-builder --dir",
-    "testar-eco": "node scripts/testar-eco.js"
+    "testar-eco": "node scripts/testar-eco.js",
+    "cloudflared": "node scripts/baixar-cloudflared.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
@@ -62,6 +63,12 @@
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "extraResources": [
+      {
+        "from": "bin/cloudflared.exe",
+        "to": "cloudflared.exe"
+      }
+    ]
   }
 }
