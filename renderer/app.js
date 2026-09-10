@@ -392,7 +392,7 @@ function connect(url, { silent = false } = {}) {
     // servidor exposto na internet pede senha: so consideramos conectado depois
     // que ela passa, senao o app abriria numa lista de salas que nunca vem
     let liberado = false;
-    const identificar = () => send({ type: 'identify', name: S.name, avatar: S.settings.avatar || '' });
+    const identificar = () => send(meuCartao());
 
     ws.onopen = () => {
       S.ws = ws;
@@ -681,6 +681,11 @@ function newPeer(info) {
     id: info.id,
     name: info.name,
     avatar: info.avatar || null,
+    bio: info.bio || '',
+    pronomes: info.pronomes || '',
+    faixa: info.faixa || 'marca',
+    status: info.status || 'disponivel',
+    entrouEm: info.entrouEm || null,
     muted: !!info.muted,
     deafened: !!info.deafened,
     sharing: !!info.sharing,
@@ -996,7 +1001,10 @@ function renderRooms() {
         row.onclick = () => openProfile(u.id);
         row.oncontextmenu = (e) => { e.preventDefault(); openPeerMenu(u.id, e.clientX, e.clientY); };
         if (!isSelf && volumeOf(u.id) === 0) row.style.opacity = '.55';
-        row.appendChild(avatarEl(u.name, u.id, 'sm'));
+        const avatarPessoa = avatarEl(u.name, u.id, 'sm');
+        // o pontinho de status vive no proprio avatar, como no cartao
+        avatarPessoa.dataset.status = (isSelf ? (S.settings.status || 'disponivel') : (u.status || 'disponivel'));
+        row.appendChild(avatarPessoa);
         const nm = el('span', null);
         nm.textContent = u.name + (isSelf ? ' (voce)' : '');
         row.appendChild(nm);
@@ -1351,8 +1359,11 @@ function updateControlUI() {
   fsh.innerHTML = S.sharing ? ICON.screenOff : ICON.screen;
   fsh.classList.toggle('on', S.sharing);
 
-  $('selfState').textContent = !S.room ? 'Disponivel'
+  const meuStatus = STATUS_NOME[S.settings.status || 'disponivel'] || 'Disponivel';
+  $('selfState').textContent = !S.room ? meuStatus
     : S.deafened ? 'Sem audio' : S.muted ? 'Microfone mudo' : 'Em ' + S.room;
+  const av = $('selfAvatar');
+  if (av) av.dataset.status = S.settings.status || 'disponivel';
 }
 
 // ---------------------------------------------------------
@@ -1731,6 +1742,58 @@ function teardownAll() {
   S.deafened = false;
   S.rooms = [];
   $('chatLog').innerHTML = '';
+}
+
+// ---------------------------------------------------------
+// Cartao de perfil
+// ---------------------------------------------------------
+const FAIXAS = [
+  { id: 'marca', nome: 'Marca' },
+  { id: 'ciano', nome: 'Ciano' },
+  { id: 'violeta', nome: 'Violeta' },
+  { id: 'magenta', nome: 'Magenta' },
+  { id: 'verde', nome: 'Verde' },
+  { id: 'ambar', nome: 'Ambar' },
+  { id: 'rubi', nome: 'Rubi' },
+  { id: 'grafite', nome: 'Grafite' },
+];
+const STATUS_NOME = { disponivel: 'Disponivel', ocupado: 'Ocupado', ausente: 'Ausente' };
+
+/** Tudo que os outros veem sobre mim, num lugar so. */
+function meuCartao() {
+  return {
+    type: 'identify',
+    name: S.name,
+    avatar: S.settings.avatar || '',
+    bio: S.settings.bio || '',
+    pronomes: S.settings.pronomes || '',
+    faixa: S.settings.faixa || 'marca',
+    status: S.settings.status || 'disponivel',
+  };
+}
+
+/** As notas sao minhas e ficam nesta maquina; a chave e o nome porque o id do
+ *  peer muda a cada conexao. */
+function notaDe(nome) {
+  const notas = S.settings.notas || {};
+  return notas[String(nome || '').toLowerCase()] || '';
+}
+function salvarNota(nome, texto) {
+  const notas = { ...(S.settings.notas || {}) };
+  const chave = String(nome || '').toLowerCase();
+  if (texto) notas[chave] = texto.slice(0, 80); else delete notas[chave];
+  S.settings.notas = notas;
+  saveSettings({ notas });
+}
+
+const hhmmDe = (ts) => (ts ? new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '');
+function desdeQuando(ts) {
+  if (!ts) return '';
+  const min = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (min < 1) return 'entrou agora';
+  if (min < 60) return 'na sala ha ' + min + ' min';
+  const h = Math.floor(min / 60);
+  return 'na sala ha ' + h + 'h' + String(min % 60).padStart(2, '0');
 }
 
 // ---------------------------------------------------------
@@ -2213,6 +2276,12 @@ function openPeerMenu(id, x, y) {
 // ---------------------------------------------------------
 let perfilAberto = null;
 
+function tagPerfil(texto, tipo) {
+  const t = el('span', 'cartao-tag' + (tipo ? ' ' + tipo : ''));
+  t.textContent = texto;
+  return t;
+}
+
 function openProfile(id) {
   perfilAberto = id;
   const eu = id === S.selfId;
@@ -2220,26 +2289,68 @@ function openProfile(id) {
   if (!eu && !p) return;
 
   const nome = eu ? (S.name || 'Voce') : p.name;
-  $('profileTitle').textContent = eu ? 'Seu perfil' : 'Perfil';
+  const faixa = eu ? (S.settings.faixa || 'marca') : (p.faixa || 'marca');
+  const status = eu ? (S.settings.status || 'disponivel') : (p.status || 'disponivel');
+  const bio = eu ? (S.settings.bio || '') : (p.bio || '');
+  const pron = eu ? (S.settings.pronomes || '') : (p.pronomes || '');
+
+  $('profileFaixa').dataset.faixa = faixa;
   $('profileName').textContent = nome;
+
   const av = avatarEl(nome, id, 'xl');
   av.id = 'profileAvatar';
   $('profileAvatar').replaceWith(av);
+
+  const ponto = $('profileStatusPonto');
+  ponto.dataset.status = status;
+  ponto.title = STATUS_NOME[status] || 'Disponivel';
+
+  const nPron = $('profilePronomes');
+  nPron.textContent = pron;
+  nPron.classList.toggle('hidden', !pron);
+
+  const nBio = $('profileBio');
+  nBio.textContent = bio;
+  nBio.classList.toggle('hidden', !bio || eu);   // no meu, quem mostra e o campo
+
+  // as etiquetas contam o que esta acontecendo agora - isso o app sabe e o
+  // perfil de rede social nenhuma sabe
+  const tags = $('profileTags');
+  tags.innerHTML = '';
+  if (eu) {
+    tags.appendChild(tagPerfil(S.room ? '# ' + S.room : 'fora de sala', S.room ? 'sala' : ''));
+    if (S.muted || S.deafened) tags.appendChild(tagPerfil('microfone mudo', 'alerta'));
+    if (S.sharing) tags.appendChild(tagPerfil('compartilhando a tela', 'ativo'));
+    if (S.camOn) tags.appendChild(tagPerfil('camera ligada', 'ativo'));
+    $('profileSub').textContent = STATUS_NOME[status] || 'Disponivel';
+  } else {
+    tags.appendChild(tagPerfil(S.room ? '# ' + S.room : 'na chamada', 'sala'));
+    if (p.entrouEm) tags.appendChild(tagPerfil(desdeQuando(p.entrouEm) + ' (' + hhmmDe(p.entrouEm) + ')'));
+    if (p.muted) tags.appendChild(tagPerfil('microfone mudo', 'alerta'));
+    if (p.sharing) tags.appendChild(tagPerfil('compartilhando a tela', 'ativo'));
+    if (p.cam) tags.appendChild(tagPerfil('camera ligada', 'ativo'));
+    if (volumeOf(id) === 0) tags.appendChild(tagPerfil('silenciado por voce', 'alerta'));
+    $('profileSub').textContent = STATUS_NOME[status] || 'Disponivel';
+  }
 
   $('profileEdit').classList.toggle('hidden', !eu);
   $('profileView').classList.toggle('hidden', eu);
 
   if (eu) {
     $('profileNameInput').value = S.name || '';
-    $('profileSub').textContent = S.room ? 'na sala ' + S.room : 'fora de sala';
+    $('profilePronomesInput').value = pron;
+    $('profileBioInput').value = bio;
+    $('bioConta').textContent = bio.length + '/160';
+    $('pronomesConta').textContent = pron.length + '/20';
+    document.querySelectorAll('#statusSeg .seg-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.status === status);
+    });
+    montarFaixas(faixa);
   } else {
-    const partes = [];
-    if (p.muted) partes.push('microfone mudo');
-    if (p.sharing) partes.push('compartilhando tela');
-    if (p.cam) partes.push('camera ligada');
-    $('profileSub').textContent = partes.length ? partes.join(' - ') : 'na chamada';
     $('peerVol').value = volumeOf(id);
     $('peerVolVal').textContent = volumeOf(id) + '%';
+    $('profileNota').value = notaDe(p.name);
+    $('profileNota').oninput = () => salvarNota(p.name, $('profileNota').value);
 
     const box = $('profileStreams');
     box.innerHTML = '';
@@ -2262,18 +2373,53 @@ function openProfile(id) {
   $('profileModal').classList.remove('hidden');
 }
 
+function montarFaixas(atual) {
+  const box = $('faixaEscolha');
+  box.innerHTML = '';
+  for (const f of FAIXAS) {
+    const b = el('button', 'faixa-opcao' + (f.id === atual ? ' sel' : ''));
+    b.dataset.faixa = f.id;
+    b.title = f.nome;
+    b.onclick = () => {
+      S.settings.faixa = f.id;
+      $('profileFaixa').dataset.faixa = f.id;
+      montarFaixas(f.id);
+    };
+    box.appendChild(b);
+  }
+}
+
 function salvarPerfil() {
   if (perfilAberto === S.selfId) {
-    const novo = ($('profileNameInput').value || '').trim();
-    if (novo && novo !== S.name) {
-      S.name = novo;
-      saveSettings({ name: novo });
-      $('selfName').textContent = novo;
-      send({ type: 'identify', name: S.name, avatar: S.settings.avatar || '' });
-      renderStage();
+    const nome = ($('profileNameInput').value || '').trim();
+    const bio = ($('profileBioInput').value || '').trim();
+    const pron = ($('profilePronomesInput').value || '').trim();
+
+    if (nome && nome !== S.name) {
+      S.name = nome;
+      $('selfName').textContent = nome;
     }
+    S.settings.bio = bio;
+    S.settings.pronomes = pron;
+    saveSettings({
+      name: S.name,
+      bio,
+      pronomes: pron,
+      faixa: S.settings.faixa || 'marca',
+      status: S.settings.status || 'disponivel',
+    });
+    send(meuCartao());          // os outros veem o cartao novo na hora
+    atualizarMeuPainel();
+    renderStage();
+    renderRooms();
   }
   $('profileModal').classList.add('hidden');
+}
+
+/** Barra de baixo da sidebar depois de mexer no perfil. */
+function atualizarMeuPainel() {
+  $('selfName').textContent = S.name || 'Voce';
+  updateControlUI();
 }
 
 async function definirAvatar(file) {
@@ -2281,7 +2427,7 @@ async function definirAvatar(file) {
     const dataUrl = await prepararImagem(file, { max: 160, qualidade: 0.88, limiteGif: 400000 });
     if (dataUrl.length > 380000) return toast('Imagem muito pesada para o perfil.', 'err');
     saveSettings({ avatar: dataUrl });
-    send({ type: 'identify', name: S.name, avatar: dataUrl });
+    send(meuCartao());
     atualizarMeuAvatar();
     openProfile(S.selfId);
   } catch (e) {
@@ -2817,11 +2963,22 @@ function wireUI() {
   };
   $('btnClearAvatar').onclick = () => {
     saveSettings({ avatar: '' });
-    send({ type: 'identify', name: S.name, avatar: '' });
+    send(meuCartao());
     atualizarMeuAvatar();
     openProfile(S.selfId);
   };
   $('profileNameInput').onkeydown = (e) => { if (e.key === 'Enter') salvarPerfil(); };
+  $('profileBioInput').oninput = () => { $('bioConta').textContent = $('profileBioInput').value.length + '/160'; };
+  $('profilePronomesInput').oninput = () => { $('pronomesConta').textContent = $('profilePronomesInput').value.length + '/20'; };
+  document.querySelectorAll('#statusSeg .seg-btn').forEach((b) => {
+    b.onclick = () => {
+      S.settings.status = b.dataset.status;
+      document.querySelectorAll('#statusSeg .seg-btn').forEach((x) => x.classList.toggle('active', x === b));
+      $('profileStatusPonto').dataset.status = b.dataset.status;
+      $('profileStatusPonto').title = STATUS_NOME[b.dataset.status];
+      $('profileSub').textContent = STATUS_NOME[b.dataset.status];
+    };
+  });
   $('peerVol').oninput = (e) => {
     $('peerVolVal').textContent = e.target.value + '%';
     if (perfilAberto) setVolumeOf(perfilAberto, Number(e.target.value));

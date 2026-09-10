@@ -268,25 +268,59 @@
 
 <!-- ================= MODAL: PERFIL ================= -->
 <div class="modal-back hidden" id="profileModal">
-  <div class="modal small">
-    <div class="modal-head">
-      <h3 id="profileTitle">Perfil</h3>
-      <button class="modal-x" data-close="profileModal">&times;</button>
-    </div>
-    <div class="modal-body profile-body">
-      <div class="profile-top">
+  <div class="modal cartao">
+    <button class="modal-x flutuante" data-close="profileModal">&times;</button>
+
+    <!-- faixa + avatar: a cara do cartao -->
+    <div class="cartao-faixa" id="profileFaixa" data-faixa="marca"></div>
+    <div class="cartao-topo">
+      <div class="cartao-avatar">
         <div class="avatar xl" id="profileAvatar">EU</div>
-        <div class="profile-id">
-          <div class="profile-name" id="profileName">Voce</div>
-          <div class="profile-sub" id="profileSub"></div>
+        <span class="cartao-status" id="profileStatusPonto" data-status="disponivel" title="Disponivel"></span>
+      </div>
+      <div class="cartao-nome">
+        <div class="profile-name" id="profileName">Voce</div>
+        <div class="cartao-linha">
+          <span class="profile-sub" id="profileSub"></span>
+          <span class="cartao-pronomes hidden" id="profilePronomes"></span>
         </div>
       </div>
+    </div>
+
+    <div class="modal-body profile-body">
+      <div class="cartao-tags" id="profileTags"></div>
+      <div class="cartao-bio hidden" id="profileBio"></div>
 
       <div id="profileEdit">
+        <div class="dois-campos">
+          <label class="field">
+            <span>Nome</span>
+            <input id="profileNameInput" type="text" maxlength="24" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Pronomes <b id="pronomesConta">0/20</b></span>
+            <input id="profilePronomesInput" type="text" maxlength="20" placeholder="ele/dele" autocomplete="off" />
+          </label>
+        </div>
         <label class="field">
-          <span>Nome</span>
-          <input id="profileNameInput" type="text" maxlength="24" autocomplete="off" />
+          <span>Sobre voce <b id="bioConta">0/160</b></span>
+          <input id="profileBioInput" type="text" maxlength="160" placeholder="uma linha sobre voce" autocomplete="off" />
         </label>
+
+        <div class="field">
+          <span>Status</span>
+          <div class="seg status-seg" id="statusSeg">
+            <button class="seg-btn" data-status="disponivel">Disponivel</button>
+            <button class="seg-btn" data-status="ocupado">Ocupado</button>
+            <button class="seg-btn" data-status="ausente">Ausente</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span>Cor da faixa</span>
+          <div class="faixas" id="faixaEscolha"></div>
+        </div>
+
         <div class="row-gap">
           <button class="btn ghost" id="btnPickAvatar">Escolher foto</button>
           <button class="btn ghost" id="btnClearAvatar">Remover foto</button>
@@ -300,6 +334,10 @@
           <input type="range" id="peerVol" min="0" max="200" value="100" />
         </label>
         <div id="profileStreams" class="profile-streams"></div>
+        <label class="field">
+          <span>Nota <b>so voce ve</b></span>
+          <input id="profileNota" type="text" maxlength="80" placeholder="ex: primo do Leo, joga de suporte" autocomplete="off" />
+        </label>
       </div>
     </div>
     <div class="modal-foot">

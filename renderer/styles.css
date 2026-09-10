@@ -186,9 +186,9 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15);box-shadow:0
 .icon-btn.off{color:var(--danger);background:rgba(255,79,99,.10)}
 .icon-btn.on{color:var(--cyan);background:rgba(69,220,255,.12);box-shadow:inset 0 0 0 1px rgba(69,220,255,.28)}
 
-.seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:2px;gap:2px}
+.seg{display:flex;flex:none;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:2px;gap:2px}
 .seg-btn{
-  padding:5px 12px;border-radius:8px;font-family:var(--font-display);
+  flex:none;white-space:nowrap;padding:5px 12px;border-radius:8px;font-family:var(--font-display);
   font-size:11.5px;font-weight:600;letter-spacing:.6px;color:var(--dim);transition:.14s;
 }
 .seg-btn:hover{color:var(--text);background:rgba(126,158,235,.07)}
@@ -481,7 +481,7 @@ button.avatar:hover{transform:scale(1.06);box-shadow:0 0 0 2px var(--cyan),0 0 1
 .hash{color:var(--cyan);font-size:17px;opacity:.8;flex:none}
 .stage-tools{display:flex;align-items:center;gap:10px;flex:none}
 .tool-group{
-  display:flex;align-items:center;gap:4px;padding:3px;border-radius:11px;
+  display:flex;flex:none;align-items:center;gap:4px;padding:3px;border-radius:11px;
   background:var(--surface-2);border:1px solid var(--line);
 }
 .tool-group .icon-btn{width:28px;height:28px}
@@ -746,6 +746,89 @@ button.avatar:hover{transform:scale(1.06);box-shadow:0 0 0 2px var(--cyan),0 0 1
 .mic-test{margin:14px 0 4px;color:var(--dim)}
 .meter{height:8px;background:var(--sunken);border-radius:6px;overflow:hidden;margin-top:8px;border:1px solid var(--line)}
 .meter-fill{height:100%;width:0%;background:var(--grad);transition:width .06s linear}
+
+/* -------- Cartao de perfil -------- */
+/* cada faixa e uma cor da casa; a "marca" e o proprio gradiente do icone */
+.cartao-faixa{
+  height:92px;border-radius:20px 20px 0 0;position:relative;flex:none;
+  background:var(--grad);
+}
+.cartao-faixa[data-faixa=ciano]{background:linear-gradient(105deg,#1c6b86,#45dcff)}
+.cartao-faixa[data-faixa=violeta]{background:linear-gradient(105deg,#3b2a6b,#a855f7)}
+.cartao-faixa[data-faixa=magenta]{background:linear-gradient(105deg,#5c1b56,#d02ee0)}
+.cartao-faixa[data-faixa=verde]{background:linear-gradient(105deg,#12564a,#2fe3a6)}
+.cartao-faixa[data-faixa=ambar]{background:linear-gradient(105deg,#6b4a10,#ffb43d)}
+.cartao-faixa[data-faixa=rubi]{background:linear-gradient(105deg,#6b1a28,#ff4f63)}
+.cartao-faixa[data-faixa=grafite]{background:linear-gradient(105deg,#1a2036,#38415e)}
+/* fio de luz separando a faixa do corpo */
+.cartao-faixa::after{
+  content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:rgba(0,0,0,.35);
+}
+
+.modal.cartao{width:min(430px,92vw);overflow:visible}
+.modal.cartao .modal-body{padding-top:6px}
+.modal-x.flutuante{
+  position:absolute;right:10px;top:10px;z-index:2;color:#fff;
+  background:rgba(4,6,14,.35);backdrop-filter:blur(6px);
+}
+.modal-x.flutuante:hover{background:rgba(4,6,14,.6);color:#fff}
+
+.cartao-topo{display:flex;align-items:flex-end;gap:14px;padding:0 20px;margin-top:-38px}
+.cartao-avatar{position:relative;flex:none}
+.cartao-avatar .avatar{
+  border:4px solid var(--surface);box-shadow:0 8px 22px rgba(0,0,0,.45);
+}
+/* o ponto de status fica na borda do avatar, como um selo */
+.cartao-status{
+  position:absolute;right:2px;bottom:2px;width:18px;height:18px;border-radius:50%;
+  border:3px solid var(--surface);background:var(--good);
+}
+/* ponto de status na lista: box-shadow porque o avatar tem overflow:hidden */
+.avatar[data-status]{
+  box-shadow:0 0 0 2px var(--surface), 6px 6px 0 -1px var(--good), 6px 6px 0 1px var(--surface);
+}
+.avatar[data-status=ocupado]{box-shadow:0 0 0 2px var(--surface), 6px 6px 0 -1px var(--danger), 6px 6px 0 1px var(--surface)}
+.avatar[data-status=ausente]{box-shadow:0 0 0 2px var(--surface), 6px 6px 0 -1px var(--warn), 6px 6px 0 1px var(--surface)}
+.cartao-status[data-status=ocupado]{background:var(--danger)}
+.cartao-status[data-status=ausente]{background:var(--warn)}
+
+.cartao-nome{min-width:0;padding-bottom:4px}
+.cartao-linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cartao-pronomes{
+  font-size:11px;color:var(--dim);border:1px solid var(--line-2);
+  padding:1px 7px;border-radius:20px;
+}
+.cartao-tags{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 12px}
+.cartao-tag{
+  font-size:11px;color:var(--muted);background:var(--surface-2);
+  border:1px solid var(--line);padding:4px 10px;border-radius:20px;
+}
+.cartao-tag.sala{color:var(--cyan);border-color:rgba(69,220,255,.3);background:rgba(69,220,255,.08);font-family:var(--font-mono)}
+.cartao-tag.ativo{color:var(--good);border-color:rgba(47,227,166,.3);background:rgba(47,227,166,.08)}
+.cartao-tag.alerta{color:var(--danger);border-color:rgba(255,79,99,.3);background:rgba(255,79,99,.08)}
+.cartao-bio{
+  font-size:13px;line-height:1.6;color:#c9cfe4;margin-bottom:16px;
+  padding:11px 13px;border-radius:12px;background:var(--sunken);border:1px solid var(--line);
+  user-select:text;white-space:pre-wrap;overflow-wrap:anywhere;
+}
+
+.dois-campos{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.status-seg{width:100%}
+.status-seg .seg-btn{flex:1}
+.faixas{display:flex;gap:8px;flex-wrap:wrap}
+.faixa-opcao{
+  width:38px;height:26px;border-radius:8px;border:2px solid transparent;
+  background:var(--grad);transition:.14s;position:relative;
+}
+.faixa-opcao[data-faixa=ciano]{background:linear-gradient(105deg,#1c6b86,#45dcff)}
+.faixa-opcao[data-faixa=violeta]{background:linear-gradient(105deg,#3b2a6b,#a855f7)}
+.faixa-opcao[data-faixa=magenta]{background:linear-gradient(105deg,#5c1b56,#d02ee0)}
+.faixa-opcao[data-faixa=verde]{background:linear-gradient(105deg,#12564a,#2fe3a6)}
+.faixa-opcao[data-faixa=ambar]{background:linear-gradient(105deg,#6b4a10,#ffb43d)}
+.faixa-opcao[data-faixa=rubi]{background:linear-gradient(105deg,#6b1a28,#ff4f63)}
+.faixa-opcao[data-faixa=grafite]{background:linear-gradient(105deg,#1a2036,#38415e)}
+.faixa-opcao:hover{transform:translateY(-2px)}
+.faixa-opcao.sel{border-color:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.4),0 6px 16px rgba(0,0,0,.4)}
 
 /* -------- Perfil -------- */
 .profile-body{padding-top:16px}

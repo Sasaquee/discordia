@@ -151,10 +151,18 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
     if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
   };
 
+  const STATUS = new Set(['disponivel', 'ocupado', 'ausente']);
+  const FAIXAS = new Set(['marca', 'ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'grafite']);
+
   const peerInfo = (ws) => ({
     id: ws.id,
     name: ws.name,
     avatar: ws.avatar || null,
+    bio: ws.bio || '',
+    pronomes: ws.pronomes || '',
+    faixa: ws.faixa || 'marca',
+    status: ws.status || 'disponivel',
+    entrouEm: ws.entrouEm || null,
     muted: !!ws.muted,
     deafened: !!ws.deafened,
     sharing: !!ws.sharing,
@@ -174,7 +182,7 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
   const roomsSnapshot = () =>
     [...knownRooms].map((name) => ({
       name,
-      users: [...(rooms.get(name) || [])].map((p) => ({ id: p.id, name: p.name, avatar: p.avatar || null })),
+      users: [...(rooms.get(name) || [])].map((p) => ({ id: p.id, name: p.name, avatar: p.avatar || null, status: p.status || 'disponivel' })),
     }));
 
   const broadcastRooms = () => {
@@ -248,6 +256,11 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
             const a = String(msg.avatar || '');
             ws.avatar = a.startsWith('data:image/') && a.length <= 400000 ? a : null;
           }
+          // cartao de perfil: texto curto e opcoes de uma lista fechada
+          if ('bio' in msg) ws.bio = String(msg.bio || '').slice(0, 160);
+          if ('pronomes' in msg) ws.pronomes = String(msg.pronomes || '').slice(0, 20);
+          if ('faixa' in msg) ws.faixa = FAIXAS.has(msg.faixa) ? msg.faixa : 'marca';
+          if ('status' in msg) ws.status = STATUS.has(msg.status) ? msg.status : 'disponivel';
           if (ws.room) broadcast(ws.room, { type: 'peer-state', peer: peerInfo(ws) }, ws.id);
           broadcastRooms();
           break;
@@ -258,6 +271,7 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
           if (ws.room === room) break;
           leaveRoom(ws);
           ws.room = room;
+          ws.entrouEm = Date.now();
           ws.muted = !!msg.muted;
           ws.deafened = !!msg.deafened;
           if (!knownRooms.has(room)) { knownRooms.add(room); saveRooms(); }
