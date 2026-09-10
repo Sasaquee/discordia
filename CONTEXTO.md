@@ -97,6 +97,25 @@ Por dentro é o **cloudflared** (`bin/cloudflared.exe`, baixado por
   443; acrescentar `:45070` quebrava a conexão. A porta padrão só entra em `ws://`, e um
   endereço sem esquema vira `ws://` se for IP ou localhost, ou `wss://` se for domínio.
 
+## Cartão de perfil
+
+Cada pessoa tem um cartão: foto, nome, pronomes, uma linha de bio, status
+(disponível / ocupado / ausente) e a cor da faixa. Tudo isso viaja no `identify` e
+volta no `peerInfo`, então não existe cadastro nem servidor de perfil: o cartão é a
+pessoa se apresentando na sala.
+
+Limites ficam no servidor (bio 160, pronomes 20) e faixa e status são listas fechadas,
+porque o campo vem do cliente e cliente mente.
+
+O que o cartão mostra **além** do que a pessoa escreveu são as etiquetas de agora: em
+que sala está, há quanto tempo entrou (`entrouEm`, marcado no `join`), se está com o
+microfone mudo, compartilhando tela ou com a câmera ligada, e se você silenciou ela.
+Essa parte é a que um perfil de rede social não teria como ter.
+
+A **nota** ("só você vê") fica no `settings.json` da sua máquina e nunca é enviada. A
+chave dela é o **nome** da pessoa, não o id: o id é sorteado a cada conexão e a nota
+não sobreviveria à próxima chamada.
+
 ## Reconexão, atualização e apertar para falar
 
 **Reconexão.** Quando a sinalização cai sem ser a pedido (wi-fi oscilou, o túnel piscou,
@@ -244,7 +263,7 @@ Tudo em `%APPDATA%/Discordia/` (`app.getPath('userData')`):
 
 ## Protocolo (WebSocket, JSON)
 
-Cliente → servidor: `auth`, `identify`, `join`, `leave`, `state`, `signal`, `chat`,
+Cliente → servidor: `auth`, `identify` (nome, foto, bio, pronomes, faixa, status), `join`, `leave`, `state`, `signal`, `chat`,
 `delete-room`, `rename-room`, `move-room`, `clear-history`, `ping`.
 Servidor → cliente: `hello`, `auth-ok`, `auth-fail`, `rooms`, `joined`, `history`,
 `left`, `peer-join`, `peer-leave`, `peer-state`, `signal`, `chat`, `room-renamed`, `pong`.
