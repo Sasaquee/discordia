@@ -112,6 +112,20 @@ que sala está, há quanto tempo entrou (`entrouEm`, marcado no `join`), se est�
 microfone mudo, compartilhando tela ou com a câmera ligada, e se você silenciou ela.
 Essa parte é a que um perfil de rede social não teria como ter.
 
+O **estilo do nick** é composto: **fonte + efeito + cor**, cada eixo de uma lista
+fechada, o que dá centenas de combinações em vez de um punhado de cores. As fontes
+(10, licença OFL) ficam em `assets/fonts/` como woff2 e são declaradas em `@font-face`
+apontando para o arquivo local — nada de CDN, porque o app roda offline e a CSP não
+deixaria. Os efeitos (sólido, gradiente, neon, contorno, pop, gummy, prisma) são só CSS.
+
+As **molduras de avatar** também são CSS puro (`[data-moldura]::before`, com
+`conic-gradient` e máscara radial para as animadas). Sem imagem e sem loja: funcionam em
+qualquer tamanho de avatar, da lista ao cartão.
+
+O `estiloNick` mudou de string para objeto. `normalizarNick` aceita os dois formatos,
+porque a versão anterior já saiu publicada com o formato antigo gravado no
+`settings.json` de quem instalou.
+
 No cartão também cabem **imagem de faixa** (aceita GIF, que vai inteiro para não
 perder a animação), **estilo de nick** (10 opções, de cor sólida a gradiente animado) e
 até **3 cargos** com cor, que a pessoa mesma escreve. Não existe hierarquia no app, então
