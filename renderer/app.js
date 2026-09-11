@@ -695,6 +695,9 @@ function newPeer(info) {
     bio: info.bio || '',
     pronomes: info.pronomes || '',
     faixa: info.faixa || 'marca',
+    banner: info.banner || null,
+    estiloNick: info.estiloNick || 'normal',
+    tags: Array.isArray(info.tags) ? info.tags : [],
     status: info.status || 'disponivel',
     entrouEm: info.entrouEm || null,
     muted: !!info.muted,
@@ -1770,6 +1773,41 @@ const FAIXAS = [
   { id: 'grafite', nome: 'Grafite' },
 ];
 const STATUS_NOME = { disponivel: 'Disponivel', ocupado: 'Ocupado', ausente: 'Ausente' };
+const ESTILOS_NICK = [
+  { id: 'normal', nome: 'Normal' },
+  { id: 'marca', nome: 'Marca' },
+  { id: 'ciano', nome: 'Ciano' },
+  { id: 'violeta', nome: 'Violeta' },
+  { id: 'magenta', nome: 'Magenta' },
+  { id: 'verde', nome: 'Verde' },
+  { id: 'ambar', nome: 'Ambar' },
+  { id: 'rubi', nome: 'Rubi' },
+  { id: 'neon', nome: 'Neon' },
+  { id: 'arco', nome: 'Arco-iris' },
+];
+const CORES_TAG = ['ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'grafite'];
+
+/** Aplica o estilo escolhido no elemento que mostra o nick. */
+function aplicarEstiloNick(node, estilo) {
+  node.dataset.nick = estilo || 'normal';
+}
+
+/** Etiquetas do cartao (os "cargos"). */
+function montarTags(box, tags) {
+  box.innerHTML = '';
+  for (const t of (tags || [])) {
+    if (!t || !t.texto) continue;
+    const n = el('span', 'tag-cargo');
+    n.dataset.cor = t.cor || 'ciano';
+    const ponto = el('span', 'tag-ponto');
+    n.appendChild(ponto);
+    const txt = document.createElement('span');
+    txt.textContent = t.texto;
+    n.appendChild(txt);
+    box.appendChild(n);
+  }
+  box.classList.toggle('hidden', !box.children.length);
+}
 
 /** Tudo que os outros veem sobre mim, num lugar so. */
 function meuCartao() {
@@ -1780,6 +1818,9 @@ function meuCartao() {
     bio: S.settings.bio || '',
     pronomes: S.settings.pronomes || '',
     faixa: S.settings.faixa || 'marca',
+    banner: S.settings.banner || '',
+    estiloNick: S.settings.estiloNick || 'normal',
+    tags: S.settings.tags || [],
     status: S.settings.status || 'disponivel',
   };
 }
@@ -2308,12 +2349,21 @@ function abrirMiniPerfil(id, x, y) {
   const bio = eu ? (S.settings.bio || '') : (p.bio || '');
   const pron = eu ? (S.settings.pronomes || '') : (p.pronomes || '');
 
-  $('miniFaixa').dataset.faixa = faixa;
+  const banner = eu ? (S.settings.banner || '') : (p.banner || '');
+  const estilo = eu ? (S.settings.estiloNick || 'normal') : (p.estiloNick || 'normal');
+  const cargos = eu ? (S.settings.tags || []) : (p.tags || []);
+
+  const nFaixa = $('miniFaixa');
+  nFaixa.dataset.faixa = faixa;
+  nFaixa.style.backgroundImage = banner ? `url(${banner})` : '';
+  nFaixa.classList.toggle('com-imagem', !!banner);
+  montarTags($('miniCargos'), cargos);
   const av = avatarEl(nome, id, '');
   av.id = 'miniAvatar';
   $('miniAvatar').replaceWith(av);
   $('miniPonto').dataset.status = status;
   $('miniNomeTexto').textContent = nome;
+  aplicarEstiloNick($('miniNomeTexto'), estilo);
   $('miniStatus').textContent = STATUS_NOME[status] || 'Disponivel';
 
   const nPron = $('miniPronomes');
@@ -2397,8 +2447,19 @@ function openProfile(id) {
   const bio = eu ? (S.settings.bio || '') : (p.bio || '');
   const pron = eu ? (S.settings.pronomes || '') : (p.pronomes || '');
 
-  $('profileFaixa').dataset.faixa = faixa;
+  const banner = eu ? (S.settings.banner || '') : (p.banner || '');
+  const estilo = eu ? (S.settings.estiloNick || 'normal') : (p.estiloNick || 'normal');
+  const cargos = eu ? (S.settings.tags || []) : (p.tags || []);
+
+  const nFaixa = $('profileFaixa');
+  nFaixa.dataset.faixa = faixa;
+  // imagem (ou GIF) manda na faixa; a cor fica de fundo quando nao tem imagem
+  nFaixa.style.backgroundImage = banner ? `url(${banner})` : '';
+  nFaixa.classList.toggle('com-imagem', !!banner);
+
   $('profileName').textContent = nome;
+  aplicarEstiloNick($('profileName'), estilo);
+  montarTags($('profileCargos'), cargos);
 
   const av = avatarEl(nome, id, 'xl');
   av.id = 'profileAvatar';
@@ -2449,6 +2510,10 @@ function openProfile(id) {
       b.classList.toggle('active', b.dataset.status === status);
     });
     montarFaixas(faixa);
+    montarEstilosNick(estilo);
+    montarCoresCargo();
+    montarCargosEdit();
+    $('bannerInfo').textContent = banner ? Math.round(banner.length / 1024) + ' KB' : 'nenhuma';
   } else {
     $('peerVol').value = volumeOf(id);
     $('peerVolVal').textContent = volumeOf(id) + '%';
@@ -2474,6 +2539,97 @@ function openProfile(id) {
     }
   }
   $('profileModal').classList.remove('hidden');
+}
+
+// ---------------------------------------------------------
+// Edicao: estilo do nick, cargos e imagem da faixa
+// ---------------------------------------------------------
+function montarEstilosNick(atual) {
+  const box = $('nickEscolha');
+  box.innerHTML = '';
+  for (const e of ESTILOS_NICK) {
+    const b = el('button', 'nick-opcao' + (e.id === atual ? ' sel' : ''));
+    const amostra = document.createElement('span');
+    amostra.dataset.nick = e.id;
+    amostra.textContent = S.name || 'Nick';
+    b.appendChild(amostra);
+    b.title = e.nome;
+    b.onclick = () => {
+      S.settings.estiloNick = e.id;
+      aplicarEstiloNick($('profileName'), e.id);
+      montarEstilosNick(e.id);
+    };
+    box.appendChild(b);
+  }
+}
+
+let corCargoEscolhida = 'ciano';
+function montarCoresCargo() {
+  const box = $('cargoCores');
+  box.innerHTML = '';
+  for (const c of CORES_TAG) {
+    const b = el('button', 'cor-opcao' + (c === corCargoEscolhida ? ' sel' : ''));
+    b.dataset.cor = c;
+    b.title = c;
+    b.onclick = () => { corCargoEscolhida = c; montarCoresCargo(); };
+    box.appendChild(b);
+  }
+}
+
+function montarCargosEdit() {
+  const lista = S.settings.tags || [];
+  const box = $('cargosEdit');
+  box.innerHTML = '';
+  lista.forEach((t, i) => {
+    const n = el('span', 'tag-cargo');
+    n.dataset.cor = t.cor || 'ciano';
+    n.appendChild(el('span', 'tag-ponto'));
+    const txt = document.createElement('span');
+    txt.textContent = t.texto;
+    n.appendChild(txt);
+    const x = el('button', 'tag-x', '&times;');
+    x.title = 'Remover';
+    x.onclick = () => {
+      S.settings.tags = (S.settings.tags || []).filter((_, j) => j !== i);
+      montarCargosEdit();
+      montarTags($('profileCargos'), S.settings.tags);
+    };
+    n.appendChild(x);
+    box.appendChild(n);
+  });
+  box.classList.toggle('hidden', !lista.length);
+  $('cargosConta').textContent = lista.length + '/3';
+  $('btnAddCargo').disabled = lista.length >= 3;
+}
+
+function adicionarCargo() {
+  const texto = ($('cargoTexto').value || '').trim();
+  if (!texto) return;
+  const lista = S.settings.tags || [];
+  if (lista.length >= 3) return toast('Da para ter no maximo 3 cargos.', 'err');
+  S.settings.tags = [...lista, { texto: texto.slice(0, 18), cor: corCargoEscolhida }];
+  $('cargoTexto').value = '';
+  montarCargosEdit();
+  montarTags($('profileCargos'), S.settings.tags);
+}
+
+async function definirBanner(file) {
+  try {
+    // GIF vai inteiro (redimensionar mataria a animacao); o resto e reduzido
+    const dataUrl = await prepararImagem(file, { max: 640, qualidade: 0.82, limiteGif: 1300000 });
+    if (dataUrl.length > 1300000) {
+      return toast('Imagem pesada demais para a faixa (max ~1 MB).', 'err');
+    }
+    S.settings.banner = dataUrl;
+    saveSettings({ banner: dataUrl });
+    const f = $('profileFaixa');
+    f.style.backgroundImage = `url(${dataUrl})`;
+    f.classList.add('com-imagem');
+    $('bannerInfo').textContent = Math.round(dataUrl.length / 1024) + ' KB';
+    send(meuCartao());
+  } catch (err) {
+    toast(err.message || 'Nao consegui usar essa imagem.', 'err');
+  }
 }
 
 function montarFaixas(atual) {
@@ -2509,6 +2665,9 @@ function salvarPerfil() {
       bio,
       pronomes: pron,
       faixa: S.settings.faixa || 'marca',
+      banner: S.settings.banner || '',
+      estiloNick: S.settings.estiloNick || 'normal',
+      tags: S.settings.tags || [],
       status: S.settings.status || 'disponivel',
     });
     send(meuCartao());          // os outros veem o cartao novo na hora
@@ -3071,6 +3230,19 @@ function wireUI() {
     openProfile(S.selfId);
   };
   $('profileNameInput').onkeydown = (e) => { if (e.key === 'Enter') salvarPerfil(); };
+  $('btnAddCargo').onclick = adicionarCargo;
+  $('cargoTexto').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); adicionarCargo(); } };
+  $('btnPickBanner').onclick = () => $('fileBanner').click();
+  $('fileBanner').onchange = (e) => { const f = e.target.files[0]; if (f) definirBanner(f); e.target.value = ''; };
+  $('btnClearBanner').onclick = () => {
+    S.settings.banner = '';
+    saveSettings({ banner: '' });
+    const f = $('profileFaixa');
+    f.style.backgroundImage = '';
+    f.classList.remove('com-imagem');
+    $('bannerInfo').textContent = 'nenhuma';
+    send(meuCartao());
+  };
   $('profileBioInput').oninput = () => { $('bioConta').textContent = $('profileBioInput').value.length + '/160'; };
   $('profilePronomesInput').oninput = () => { $('pronomesConta').textContent = $('profilePronomesInput').value.length + '/20'; };
   document.querySelectorAll('#statusSeg .seg-btn').forEach((b) => {

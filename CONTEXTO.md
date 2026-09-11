@@ -112,6 +112,20 @@ que sala está, há quanto tempo entrou (`entrouEm`, marcado no `join`), se est�
 microfone mudo, compartilhando tela ou com a câmera ligada, e se você silenciou ela.
 Essa parte é a que um perfil de rede social não teria como ter.
 
+No cartão também cabem **imagem de faixa** (aceita GIF, que vai inteiro para não
+perder a animação), **estilo de nick** (10 opções, de cor sólida a gradiente animado) e
+até **3 cargos** com cor, que a pessoa mesma escreve. Não existe hierarquia no app, então
+cargo aqui é auto-declarado: é identidade, não permissão.
+
+O banner é o campo mais pesado que trafega (limite de ~1,3 MB, contra 400 KB do avatar)
+e vai para todos os pares no `identify`. Se um dia pesar demais numa sala cheia, é o
+primeiro lugar para olhar.
+
+Cuidado ao mexer nas amostras de estilo de nick: o gradiente é recortado no texto
+(`background-clip:text` com `color:transparent`), então o elemento que mostra o nome não
+pode ter fundo próprio, senão o texto some. Por isso a amostra é um `<span>` dentro do
+botão, e não o botão.
+
 O perfil tem **duas camadas**, como no Discord: clicar na pessoa abre o **mini**
 (faixa, foto, nick, status, bio e volume, ali mesmo, sem sair da tela), e clicar no
 **nick dentro do mini** abre o cartão completo. O mini pára a propagação do clique,
@@ -271,7 +285,7 @@ Tudo em `%APPDATA%/Discordia/` (`app.getPath('userData')`):
 
 ## Protocolo (WebSocket, JSON)
 
-Cliente → servidor: `auth`, `identify` (nome, foto, bio, pronomes, faixa, status), `join`, `leave`, `state`, `signal`, `chat`,
+Cliente → servidor: `auth`, `identify` (nome, foto, bio, pronomes, faixa, banner, estilo do nick, cargos, status), `join`, `leave`, `state`, `signal`, `chat`,
 `delete-room`, `rename-room`, `move-room`, `clear-history`, `ping`.
 Servidor → cliente: `hello`, `auth-ok`, `auth-fail`, `rooms`, `joined`, `history`,
 `left`, `peer-join`, `peer-leave`, `peer-state`, `signal`, `chat`, `room-renamed`, `pong`.

@@ -153,6 +153,18 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
 
   const STATUS = new Set(['disponivel', 'ocupado', 'ausente']);
   const FAIXAS = new Set(['marca', 'ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'grafite']);
+  const NICKS = new Set(['normal', 'marca', 'ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'neon', 'arco']);
+  const CORES_TAG = new Set(['ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'grafite']);
+  const MAX_BANNER = 1400000;   // banner com GIF pesa, e ele vai para todo mundo
+
+  /** Etiquetas que a pessoa poe no proprio cartao: no maximo 3, texto curto. */
+  const limparTags = (lista) => {
+    if (!Array.isArray(lista)) return [];
+    return lista.slice(0, 3).map((t) => ({
+      texto: String((t && t.texto) || '').slice(0, 18),
+      cor: CORES_TAG.has(t && t.cor) ? t.cor : 'ciano',
+    })).filter((t) => t.texto.trim());
+  };
 
   const peerInfo = (ws) => ({
     id: ws.id,
@@ -161,6 +173,9 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
     bio: ws.bio || '',
     pronomes: ws.pronomes || '',
     faixa: ws.faixa || 'marca',
+    banner: ws.banner || null,
+    estiloNick: ws.estiloNick || 'normal',
+    tags: ws.tags || [],
     status: ws.status || 'disponivel',
     entrouEm: ws.entrouEm || null,
     muted: !!ws.muted,
@@ -260,6 +275,12 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
           if ('bio' in msg) ws.bio = String(msg.bio || '').slice(0, 160);
           if ('pronomes' in msg) ws.pronomes = String(msg.pronomes || '').slice(0, 20);
           if ('faixa' in msg) ws.faixa = FAIXAS.has(msg.faixa) ? msg.faixa : 'marca';
+          if ('banner' in msg) {
+            const b = String(msg.banner || '');
+            ws.banner = b.startsWith('data:image/') && b.length <= MAX_BANNER ? b : null;
+          }
+          if ('estiloNick' in msg) ws.estiloNick = NICKS.has(msg.estiloNick) ? msg.estiloNick : 'normal';
+          if ('tags' in msg) ws.tags = limparTags(msg.tags);
           if ('status' in msg) ws.status = STATUS.has(msg.status) ? msg.status : 'disponivel';
           if (ws.room) broadcast(ws.room, { type: 'peer-state', peer: peerInfo(ws) }, ws.id);
           broadcastRooms();

@@ -908,6 +908,77 @@ body.fullscreen .stage{padding:12px}
 .fs-bar:hover{opacity:1}
 .fs-bar input[type=range]{width:90px}
 
+/* ===================== Nick, cargos e faixa com imagem ===================== */
+/* estilos do nick: cor solida, gradiente ou brilho */
+[data-nick=marca],[data-nick=arco]{
+  background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
+}
+[data-nick=arco]{
+  background:linear-gradient(100deg,#ff4f63,#ffb43d,#2fe3a6,#45dcff,#a855f7,#ff4f63);
+  background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:arco 6s linear infinite;
+}
+@keyframes arco{to{background-position:300% 0}}
+[data-nick=ciano]{color:var(--cyan)}
+[data-nick=violeta]{color:var(--violet)}
+[data-nick=magenta]{color:var(--magenta)}
+[data-nick=verde]{color:var(--good)}
+[data-nick=ambar]{color:var(--warn)}
+[data-nick=rubi]{color:var(--danger)}
+[data-nick=neon]{color:#fff;text-shadow:0 0 6px var(--cyan),0 0 14px rgba(69,220,255,.7)}
+
+/* cargos */
+.tags-cargo{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.tag-cargo{
+  display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text);
+  background:var(--surface-2);border:1px solid var(--line-2);padding:4px 9px;border-radius:8px;
+}
+.tag-ponto{width:8px;height:8px;border-radius:50%;background:var(--cyan);flex:none}
+.tag-cargo[data-cor=violeta] .tag-ponto{background:var(--violet)}
+.tag-cargo[data-cor=magenta] .tag-ponto{background:var(--magenta)}
+.tag-cargo[data-cor=verde] .tag-ponto{background:var(--good)}
+.tag-cargo[data-cor=ambar] .tag-ponto{background:var(--warn)}
+.tag-cargo[data-cor=rubi] .tag-ponto{background:var(--danger)}
+.tag-cargo[data-cor=grafite] .tag-ponto{background:#6b7694}
+.tag-x{color:var(--dim);font-size:15px;line-height:1;padding:0 2px;border-radius:4px}
+.tag-x:hover{color:var(--danger)}
+
+/* editor de cargos */
+.cargos-edit{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.cargo-novo{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.cargo-novo input{grid-column:1/-1}
+.cores-tag{display:flex;gap:5px}
+.cor-opcao{width:20px;height:20px;border-radius:50%;border:2px solid transparent;background:var(--cyan);transition:.14s}
+.cor-opcao[data-cor=violeta]{background:var(--violet)}
+.cor-opcao[data-cor=magenta]{background:var(--magenta)}
+.cor-opcao[data-cor=verde]{background:var(--good)}
+.cor-opcao[data-cor=ambar]{background:var(--warn)}
+.cor-opcao[data-cor=rubi]{background:var(--danger)}
+.cor-opcao[data-cor=grafite]{background:#6b7694}
+.cor-opcao:hover{transform:scale(1.15)}
+.cor-opcao.sel{border-color:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.5)}
+
+/* amostra dos estilos de nick */
+.nicks{display:flex;flex-wrap:wrap;gap:6px}
+.nick-opcao{
+  padding:5px 10px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);
+  font-family:var(--font-display);font-weight:600;font-size:12.5px;max-width:120px;
+  transition:.14s;
+}
+.nick-opcao > span{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nick-opcao:hover{border-color:var(--line-3);transform:translateY(-1px)}
+.nick-opcao.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
+
+/* faixa com imagem ou GIF */
+.cartao-faixa.com-imagem,.mini-faixa.com-imagem{
+  background-size:cover;background-position:center;
+}
+.cartao-faixa.com-imagem::before,.mini-faixa.com-imagem::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(4,6,14,0) 40%,rgba(4,6,14,.45));
+}
+.mini-faixa{position:relative}
+
 /* ===================== Mini perfil ===================== */
 .mini{
   position:fixed;z-index:190;width:288px;border-radius:16px;overflow:hidden;

@@ -282,7 +282,7 @@
         <span class="cartao-status" id="profileStatusPonto" data-status="disponivel" title="Disponivel"></span>
       </div>
       <div class="cartao-nome">
-        <div class="profile-name" id="profileName">Voce</div>
+        <div class="profile-name" id="profileName" data-nick="normal">Voce</div>
         <div class="cartao-linha">
           <span class="profile-sub" id="profileSub"></span>
           <span class="cartao-pronomes hidden" id="profilePronomes"></span>
@@ -291,6 +291,7 @@
     </div>
 
     <div class="modal-body profile-body">
+      <div class="tags-cargo hidden" id="profileCargos"></div>
       <div class="cartao-tags" id="profileTags"></div>
       <div class="cartao-bio hidden" id="profileBio"></div>
 
@@ -320,8 +321,32 @@
         </div>
 
         <div class="field">
+          <span>Estilo do nick</span>
+          <div class="nicks" id="nickEscolha"></div>
+        </div>
+
+        <div class="field">
+          <span>Cargos <b id="cargosConta">0/3</b></span>
+          <div class="cargos-edit" id="cargosEdit"></div>
+          <div class="cargo-novo">
+            <input id="cargoTexto" type="text" maxlength="18" placeholder="ex: ADM, Rapa do LoL" autocomplete="off" />
+            <div class="cores-tag" id="cargoCores"></div>
+            <button class="btn ghost small" id="btnAddCargo">Adicionar</button>
+          </div>
+        </div>
+
+        <div class="field">
           <span>Cor da faixa</span>
           <div class="faixas" id="faixaEscolha"></div>
+        </div>
+
+        <div class="field">
+          <span>Imagem da faixa <b id="bannerInfo">nenhuma</b></span>
+          <div class="row-gap">
+            <button class="btn ghost" id="btnPickBanner">Escolher imagem ou GIF</button>
+            <button class="btn ghost" id="btnClearBanner">Remover</button>
+          </div>
+          <input type="file" id="fileBanner" accept="image/*" hidden />
         </div>
 
         <div class="row-gap">
@@ -537,13 +562,14 @@
   <div class="mini-corpo">
     <!-- o nick e o caminho para o perfil completo, como no Discord -->
     <button class="mini-nome" id="miniNome" title="Ver o perfil completo">
-      <span id="miniNomeTexto">Nome</span>
+      <span id="miniNomeTexto" data-nick="normal">Nome</span>
       <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
     </button>
     <div class="mini-linha">
       <span id="miniStatus">Disponivel</span>
       <span class="cartao-pronomes hidden" id="miniPronomes"></span>
     </div>
+    <div class="tags-cargo hidden" id="miniCargos"></div>
     <div class="mini-bio hidden" id="miniBio"></div>
     <div class="cartao-tags" id="miniTags"></div>
     <div class="mini-vol hidden" id="miniVolBox">
