@@ -696,7 +696,9 @@ function newPeer(info) {
     pronomes: info.pronomes || '',
     faixa: info.faixa || 'marca',
     banner: info.banner || null,
-    estiloNick: info.estiloNick || 'normal',
+    estiloNick: normalizarNick(info.estiloNick),
+    moldura: info.moldura || 'nenhuma',
+    corMoldura: info.corMoldura || 'ciano',
     tags: Array.isArray(info.tags) ? info.tags : [],
     status: info.status || 'disponivel',
     entrouEm: info.entrouEm || null,
@@ -1016,9 +1018,15 @@ function renderRooms() {
         row.oncontextmenu = (e) => { e.preventDefault(); openPeerMenu(u.id, e.clientX, e.clientY); };
         if (!isSelf && volumeOf(u.id) === 0) row.style.opacity = '.55';
         const st = isSelf ? (S.settings.status || 'disponivel') : (u.status || 'disponivel');
-        row.appendChild(avatarComStatus(u.name, u.id, 'sm', st));
+        const pear = S.peers.get(u.id);
+        const wrapAv = avatarComStatus(u.name, u.id, 'sm', st);
+        aplicarMoldura(wrapAv,
+          isSelf ? S.settings.moldura : (pear && pear.moldura),
+          isSelf ? S.settings.corMoldura : (pear && pear.corMoldura));
+        row.appendChild(wrapAv);
         const nm = el('span', null);
         nm.textContent = u.name + (isSelf ? ' (voce)' : '');
+        aplicarEstiloNick(nm, isSelf ? S.settings.estiloNick : (pear && pear.estiloNick));
         row.appendChild(nm);
         const muted = isSelf ? (S.muted || S.deafened) : (p ? p.muted : false);
         if (muted) row.appendChild(el('span', 'mini-ic', ICON.micOff));
@@ -1773,23 +1781,55 @@ const FAIXAS = [
   { id: 'grafite', nome: 'Grafite' },
 ];
 const STATUS_NOME = { disponivel: 'Disponivel', ocupado: 'Ocupado', ausente: 'Ausente' };
-const ESTILOS_NICK = [
-  { id: 'normal', nome: 'Normal' },
-  { id: 'marca', nome: 'Marca' },
-  { id: 'ciano', nome: 'Ciano' },
-  { id: 'violeta', nome: 'Violeta' },
-  { id: 'magenta', nome: 'Magenta' },
-  { id: 'verde', nome: 'Verde' },
-  { id: 'ambar', nome: 'Ambar' },
-  { id: 'rubi', nome: 'Rubi' },
-  { id: 'neon', nome: 'Neon' },
-  { id: 'arco', nome: 'Arco-iris' },
+const FONTES_NICK = [
+  { id: 'padrao', nome: 'Padrao' }, { id: 'orbitron', nome: 'Orbitron' },
+  { id: 'bungee', nome: 'Bungee' }, { id: 'righteous', nome: 'Righteous' },
+  { id: 'audiowide', nome: 'Audiowide' }, { id: 'press', nome: 'Pixel' },
+  { id: 'monoton', nome: 'Monoton' }, { id: 'pacifico', nome: 'Pacifico' },
+  { id: 'rubik', nome: 'Rubik' }, { id: 'bebas', nome: 'Bebas' },
+  { id: 'creepster', nome: 'Creepster' },
 ];
+const EFEITOS_NICK = [
+  { id: 'solido', nome: 'Solido' }, { id: 'gradiente', nome: 'Gradiente' },
+  { id: 'neon', nome: 'Neon' }, { id: 'contorno', nome: 'Contorno' },
+  { id: 'pop', nome: 'Pop' }, { id: 'gummy', nome: 'Gummy' },
+  { id: 'prism', nome: 'Prisma' },
+];
+const CORES_NICK = ['branco', 'ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'gelo'];
+const MOLDURAS = [
+  { id: 'nenhuma', nome: 'Nenhuma' }, { id: 'anel', nome: 'Anel' },
+  { id: 'duplo', nome: 'Duplo' }, { id: 'pulso', nome: 'Pulso' },
+  { id: 'orbita', nome: 'Orbita' }, { id: 'brilho', nome: 'Brilho' },
+  { id: 'chama', nome: 'Chama' }, { id: 'arco', nome: 'Arco-iris' },
+  { id: 'cristal', nome: 'Cristal' },
+];
+
+/** Aceita tanto o formato novo quanto a string da versao anterior. */
+function normalizarNick(v) {
+  if (v && typeof v === 'object') {
+    return { fonte: v.fonte || 'padrao', efeito: v.efeito || 'solido', cor: v.cor || 'branco' };
+  }
+  const antigo = { normal: 'branco', marca: 'ciano', neon: 'ciano', arco: 'ciano' };
+  const cor = antigo[v] || (CORES_NICK.includes(v) ? v : 'branco');
+  const efeito = v === 'neon' ? 'neon' : (v === 'arco' || v === 'marca') ? 'prism' : 'solido';
+  return { fonte: 'padrao', efeito, cor };
+}
+
 const CORES_TAG = ['ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'grafite'];
 
-/** Aplica o estilo escolhido no elemento que mostra o nick. */
+/** Aplica fonte, efeito e cor no elemento que mostra o nick. */
 function aplicarEstiloNick(node, estilo) {
-  node.dataset.nick = estilo || 'normal';
+  const e = normalizarNick(estilo);
+  node.classList.add('nick');
+  node.dataset.fonte = e.fonte;
+  node.dataset.efeito = e.efeito;
+  node.dataset.cor = e.cor;
+}
+
+/** Moldura em volta do avatar. */
+function aplicarMoldura(wrap, moldura, cor) {
+  wrap.dataset.moldura = moldura || 'nenhuma';
+  wrap.dataset.corMoldura = cor || 'ciano';
 }
 
 /** Etiquetas do cartao (os "cargos"). */
@@ -1819,7 +1859,9 @@ function meuCartao() {
     pronomes: S.settings.pronomes || '',
     faixa: S.settings.faixa || 'marca',
     banner: S.settings.banner || '',
-    estiloNick: S.settings.estiloNick || 'normal',
+    estiloNick: normalizarNick(S.settings.estiloNick),
+    moldura: S.settings.moldura || 'nenhuma',
+    corMoldura: S.settings.corMoldura || 'ciano',
     tags: S.settings.tags || [],
     status: S.settings.status || 'disponivel',
   };
@@ -2350,7 +2392,9 @@ function abrirMiniPerfil(id, x, y) {
   const pron = eu ? (S.settings.pronomes || '') : (p.pronomes || '');
 
   const banner = eu ? (S.settings.banner || '') : (p.banner || '');
-  const estilo = eu ? (S.settings.estiloNick || 'normal') : (p.estiloNick || 'normal');
+  const estilo = normalizarNick(eu ? S.settings.estiloNick : p.estiloNick);
+  const moldura = eu ? (S.settings.moldura || 'nenhuma') : (p.moldura || 'nenhuma');
+  const corMoldura = eu ? (S.settings.corMoldura || 'ciano') : (p.corMoldura || 'ciano');
   const cargos = eu ? (S.settings.tags || []) : (p.tags || []);
 
   const nFaixa = $('miniFaixa');
@@ -2361,6 +2405,7 @@ function abrirMiniPerfil(id, x, y) {
   const av = avatarEl(nome, id, '');
   av.id = 'miniAvatar';
   $('miniAvatar').replaceWith(av);
+  aplicarMoldura(document.querySelector('#miniPerfil .mini-av'), moldura, corMoldura);
   $('miniPonto').dataset.status = status;
   $('miniNomeTexto').textContent = nome;
   aplicarEstiloNick($('miniNomeTexto'), estilo);
@@ -2448,7 +2493,9 @@ function openProfile(id) {
   const pron = eu ? (S.settings.pronomes || '') : (p.pronomes || '');
 
   const banner = eu ? (S.settings.banner || '') : (p.banner || '');
-  const estilo = eu ? (S.settings.estiloNick || 'normal') : (p.estiloNick || 'normal');
+  const estilo = normalizarNick(eu ? S.settings.estiloNick : p.estiloNick);
+  const moldura = eu ? (S.settings.moldura || 'nenhuma') : (p.moldura || 'nenhuma');
+  const corMoldura = eu ? (S.settings.corMoldura || 'ciano') : (p.corMoldura || 'ciano');
   const cargos = eu ? (S.settings.tags || []) : (p.tags || []);
 
   const nFaixa = $('profileFaixa');
@@ -2464,6 +2511,7 @@ function openProfile(id) {
   const av = avatarEl(nome, id, 'xl');
   av.id = 'profileAvatar';
   $('profileAvatar').replaceWith(av);
+  aplicarMoldura(document.querySelector('#profileModal .cartao-avatar'), moldura, corMoldura);
 
   const ponto = $('profileStatusPonto');
   ponto.dataset.status = status;
@@ -2510,7 +2558,9 @@ function openProfile(id) {
       b.classList.toggle('active', b.dataset.status === status);
     });
     montarFaixas(faixa);
-    montarEstilosNick(estilo);
+    montarEstilosNick();
+    montarMolduras();
+    preverNick();
     montarCoresCargo();
     montarCargosEdit();
     $('bannerInfo').textContent = banner ? Math.round(banner.length / 1024) + ' KB' : 'nenhuma';
@@ -2544,23 +2594,111 @@ function openProfile(id) {
 // ---------------------------------------------------------
 // Edicao: estilo do nick, cargos e imagem da faixa
 // ---------------------------------------------------------
-function montarEstilosNick(atual) {
-  const box = $('nickEscolha');
-  box.innerHTML = '';
-  for (const e of ESTILOS_NICK) {
-    const b = el('button', 'nick-opcao' + (e.id === atual ? ' sel' : ''));
-    const amostra = document.createElement('span');
-    amostra.dataset.nick = e.id;
-    amostra.textContent = S.name || 'Nick';
-    b.appendChild(amostra);
+function preverNick() {
+  const alvo = $('nickPreview');
+  alvo.textContent = S.name || 'Seu nick';
+  aplicarEstiloNick(alvo, S.settings.estiloNick);
+  aplicarEstiloNick($('profileName'), S.settings.estiloNick);
+}
+
+function montarEstilosNick() {
+  const atual = normalizarNick(S.settings.estiloNick);
+
+  const fontes = $('nickFontes');
+  fontes.innerHTML = '';
+  for (const f of FONTES_NICK) {
+    const b = el('button', 'nick-opcao' + (f.id === atual.fonte ? ' sel' : ''));
+    const a = document.createElement('span');
+    a.className = 'nick';
+    a.dataset.fonte = f.id;
+    a.dataset.efeito = 'solido';
+    a.dataset.cor = 'branco';
+    a.textContent = f.nome;
+    b.appendChild(a);
+    b.title = f.nome;
+    b.onclick = () => {
+      S.settings.estiloNick = { ...normalizarNick(S.settings.estiloNick), fonte: f.id };
+      montarEstilosNick();
+      preverNick();
+    };
+    fontes.appendChild(b);
+  }
+
+  const efeitos = $('nickEfeitos');
+  efeitos.innerHTML = '';
+  for (const e of EFEITOS_NICK) {
+    const b = el('button', 'nick-opcao' + (e.id === atual.efeito ? ' sel' : ''));
+    const a = document.createElement('span');
+    a.className = 'nick';
+    a.dataset.fonte = 'padrao';
+    a.dataset.efeito = e.id;
+    a.dataset.cor = atual.cor;
+    a.textContent = e.nome;
+    b.appendChild(a);
     b.title = e.nome;
     b.onclick = () => {
-      S.settings.estiloNick = e.id;
-      aplicarEstiloNick($('profileName'), e.id);
-      montarEstilosNick(e.id);
+      S.settings.estiloNick = { ...normalizarNick(S.settings.estiloNick), efeito: e.id };
+      montarEstilosNick();
+      preverNick();
+    };
+    efeitos.appendChild(b);
+  }
+
+  const cores = $('nickCores');
+  cores.innerHTML = '';
+  for (const c of CORES_NICK) {
+    const b = el('button', 'cor-opcao' + (c === atual.cor ? ' sel' : ''));
+    b.dataset.cor = c;
+    b.title = c;
+    b.onclick = () => {
+      S.settings.estiloNick = { ...normalizarNick(S.settings.estiloNick), cor: c };
+      montarEstilosNick();
+      preverNick();
+    };
+    cores.appendChild(b);
+  }
+}
+
+function montarMolduras() {
+  const atual = S.settings.moldura || 'nenhuma';
+  const cor = S.settings.corMoldura || 'ciano';
+
+  const box = $('molduraEscolha');
+  box.innerHTML = '';
+  for (const m of MOLDURAS) {
+    const b = el('button', 'moldura-opcao' + (m.id === atual ? ' sel' : ''));
+    const wrap = el('span', 'av-status');
+    wrap.dataset.moldura = m.id;
+    wrap.dataset.corMoldura = cor;
+    wrap.appendChild(avatarEl(S.name || 'EU', S.selfId, ''));
+    b.appendChild(wrap);
+    b.title = m.nome;
+    b.onclick = () => {
+      S.settings.moldura = m.id;
+      montarMolduras();
+      atualizarMolduraDoCartao();
     };
     box.appendChild(b);
   }
+
+  const cores = $('molduraCores');
+  cores.innerHTML = '';
+  for (const c of CORES_NICK.filter((x) => x !== 'branco')) {
+    const b = el('button', 'cor-opcao' + (c === cor ? ' sel' : ''));
+    b.dataset.cor = c;
+    b.title = c;
+    b.onclick = () => {
+      S.settings.corMoldura = c;
+      montarMolduras();
+      atualizarMolduraDoCartao();
+    };
+    cores.appendChild(b);
+  }
+}
+
+function atualizarMolduraDoCartao() {
+  const wrap = document.querySelector('#profileModal .cartao-avatar');
+  if (wrap) aplicarMoldura(wrap, S.settings.moldura, S.settings.corMoldura);
 }
 
 let corCargoEscolhida = 'ciano';
@@ -2666,7 +2804,9 @@ function salvarPerfil() {
       pronomes: pron,
       faixa: S.settings.faixa || 'marca',
       banner: S.settings.banner || '',
-      estiloNick: S.settings.estiloNick || 'normal',
+      estiloNick: normalizarNick(S.settings.estiloNick),
+      moldura: S.settings.moldura || 'nenhuma',
+      corMoldura: S.settings.corMoldura || 'ciano',
       tags: S.settings.tags || [],
       status: S.settings.status || 'disponivel',
     });

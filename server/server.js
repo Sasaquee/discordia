@@ -153,7 +153,17 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
 
   const STATUS = new Set(['disponivel', 'ocupado', 'ausente']);
   const FAIXAS = new Set(['marca', 'ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'grafite']);
-  const NICKS = new Set(['normal', 'marca', 'ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'neon', 'arco']);
+  const FONTES = new Set(['padrao', 'orbitron', 'bungee', 'righteous', 'audiowide', 'press', 'monoton', 'pacifico', 'rubik', 'bebas', 'creepster']);
+  const EFEITOS = new Set(['solido', 'gradiente', 'neon', 'contorno', 'pop', 'gummy', 'prism']);
+  const CORES_NICK = new Set(['branco', 'ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'gelo']);
+  const MOLDURAS = new Set(['nenhuma', 'anel', 'duplo', 'pulso', 'orbita', 'brilho', 'chama', 'arco', 'cristal']);
+
+  /** Estilo do nick: fonte + efeito + cor, cada um de uma lista fechada. */
+  const limparNick = (n) => ({
+    fonte: FONTES.has(n && n.fonte) ? n.fonte : 'padrao',
+    efeito: EFEITOS.has(n && n.efeito) ? n.efeito : 'solido',
+    cor: CORES_NICK.has(n && n.cor) ? n.cor : 'branco',
+  });
   const CORES_TAG = new Set(['ciano', 'violeta', 'magenta', 'verde', 'ambar', 'rubi', 'grafite']);
   const MAX_BANNER = 1400000;   // banner com GIF pesa, e ele vai para todo mundo
 
@@ -174,7 +184,9 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
     pronomes: ws.pronomes || '',
     faixa: ws.faixa || 'marca',
     banner: ws.banner || null,
-    estiloNick: ws.estiloNick || 'normal',
+    estiloNick: ws.estiloNick || { fonte: 'padrao', efeito: 'solido', cor: 'branco' },
+    moldura: ws.moldura || 'nenhuma',
+    corMoldura: ws.corMoldura || 'ciano',
     tags: ws.tags || [],
     status: ws.status || 'disponivel',
     entrouEm: ws.entrouEm || null,
@@ -279,7 +291,9 @@ function createServer({ port = DEFAULT_PORT, serverName = 'Servidor Discordia', 
             const b = String(msg.banner || '');
             ws.banner = b.startsWith('data:image/') && b.length <= MAX_BANNER ? b : null;
           }
-          if ('estiloNick' in msg) ws.estiloNick = NICKS.has(msg.estiloNick) ? msg.estiloNick : 'normal';
+          if ('estiloNick' in msg) ws.estiloNick = limparNick(msg.estiloNick);
+          if ('moldura' in msg) ws.moldura = MOLDURAS.has(msg.moldura) ? msg.moldura : 'nenhuma';
+          if ('corMoldura' in msg) ws.corMoldura = CORES_NICK.has(msg.corMoldura) ? msg.corMoldura : 'ciano';
           if ('tags' in msg) ws.tags = limparTags(msg.tags);
           if ('status' in msg) ws.status = STATUS.has(msg.status) ? msg.status : 'disponivel';
           if (ws.room) broadcast(ws.room, { type: 'peer-state', peer: peerInfo(ws) }, ws.id);

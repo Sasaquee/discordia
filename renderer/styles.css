@@ -775,6 +775,7 @@ button.avatar:hover{transform:scale(1.06);box-shadow:0 0 0 2px var(--cyan),0 0 1
 
 .cartao-topo{display:flex;align-items:flex-end;gap:14px;padding:0 20px;margin-top:-38px}
 .cartao-avatar{position:relative;flex:none}
+.moldura-opcao .av-status{position:relative}
 .cartao-avatar .avatar{
   border:4px solid var(--surface);box-shadow:0 8px 22px rgba(0,0,0,.45);
 }
@@ -841,6 +842,7 @@ button.avatar:hover{transform:scale(1.06);box-shadow:0 0 0 2px var(--cyan),0 0 1
 .profile-name{
   font-family:var(--font-display);font-size:19px;font-weight:600;letter-spacing:.3px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.4;padding:2px 0;   /* fonte display com efeito estoura a caixa */
 }
 .profile-sub{font-size:12px;color:var(--muted);margin-top:3px}
 .profile-streams{display:grid;gap:8px;margin-top:6px}
@@ -979,6 +981,131 @@ body.fullscreen .stage{padding:12px}
 }
 .mini-faixa{position:relative}
 
+/* ===================== Nick: fonte + efeito + cor ===================== */
+/* fontes ficam no repo (OFL); o app e offline, entao nada de CDN */
+@font-face{font-family:'Orbitron';src:url('../assets/fonts/orbitron.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Bungee';src:url('../assets/fonts/bungee.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Righteous';src:url('../assets/fonts/righteous.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Audiowide';src:url('../assets/fonts/audiowide.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Press Start 2P';src:url('../assets/fonts/press-start-2p.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Monoton';src:url('../assets/fonts/monoton.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Pacifico';src:url('../assets/fonts/pacifico.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Rubik Mono One';src:url('../assets/fonts/rubik-mono-one.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Bebas Neue';src:url('../assets/fonts/bebas-neue.woff2') format('woff2');font-display:swap}
+@font-face{font-family:'Creepster';src:url('../assets/fonts/creepster.woff2') format('woff2');font-display:swap}
+
+.nick{--nc:#e9edfb;line-height:1.35;padding:1px 0}
+.nick[data-cor=branco]{--nc:#e9edfb}
+.nick[data-cor=ciano]{--nc:#45dcff}
+.nick[data-cor=violeta]{--nc:#a855f7}
+.nick[data-cor=magenta]{--nc:#ff4fd8}
+.nick[data-cor=verde]{--nc:#2fe3a6}
+.nick[data-cor=ambar]{--nc:#ffb43d}
+.nick[data-cor=rubi]{--nc:#ff4f63}
+.nick[data-cor=gelo]{--nc:#9bd4ff}
+
+.nick[data-fonte=padrao]{font-family:var(--font-display)}
+.nick[data-fonte=orbitron]{font-family:'Orbitron',var(--font-display);letter-spacing:.5px}
+.nick[data-fonte=bungee]{font-family:'Bungee',var(--font-display);letter-spacing:.2px}
+.nick[data-fonte=righteous]{font-family:'Righteous',var(--font-display)}
+.nick[data-fonte=audiowide]{font-family:'Audiowide',var(--font-display)}
+.nick[data-fonte=press]{font-family:'Press Start 2P',var(--font-mono);font-size:.72em;letter-spacing:0}
+.nick[data-fonte=monoton]{font-family:'Monoton',var(--font-display);letter-spacing:1px}
+.nick[data-fonte=pacifico]{font-family:'Pacifico',cursive;letter-spacing:0}
+.nick[data-fonte=rubik]{font-family:'Rubik Mono One',var(--font-display)}
+.nick[data-fonte=bebas]{font-family:'Bebas Neue',var(--font-display);letter-spacing:1.5px;font-size:1.12em}
+.nick[data-fonte=creepster]{font-family:'Creepster',var(--font-display);letter-spacing:1px}
+
+/* efeitos */
+.nick[data-efeito=solido]{color:var(--nc)}
+.nick[data-efeito=gradiente]{
+  background:linear-gradient(100deg,var(--nc),#ffffff 85%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.nick[data-efeito=neon]{color:#fff;text-shadow:0 0 5px var(--nc),0 0 14px var(--nc),0 0 26px var(--nc)}
+.nick[data-efeito=contorno]{color:transparent;-webkit-text-stroke:1.1px var(--nc);paint-order:stroke fill}
+.nick[data-efeito=pop]{color:var(--nc);text-shadow:2px 2px 0 rgba(0,0,0,.9)}
+.nick[data-efeito=gummy]{
+  color:var(--nc);
+  text-shadow:0 1px 0 rgba(255,255,255,.55),0 2px 5px rgba(0,0,0,.55),0 0 12px color-mix(in srgb,var(--nc) 55%,transparent);
+}
+.nick[data-efeito=prism]{
+  background:linear-gradient(100deg,#ff4f63,#ffb43d,#2fe3a6,#45dcff,#a855f7,#ff4f63);
+  background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:prisma 6s linear infinite;
+}
+@keyframes prisma{to{background-position:300% 0}}
+
+/* ===================== Molduras de avatar ===================== */
+/* feitas em CSS: sem imagem, sem loja, funcionam em qualquer tamanho */
+[data-moldura]{--mc:var(--cyan)}
+[data-cor-moldura=violeta]{--mc:#a855f7}
+[data-cor-moldura=magenta]{--mc:#ff4fd8}
+[data-cor-moldura=verde]{--mc:#2fe3a6}
+[data-cor-moldura=ambar]{--mc:#ffb43d}
+[data-cor-moldura=rubi]{--mc:#ff4f63}
+
+[data-moldura]:not([data-moldura=nenhuma])::before{
+  content:'';position:absolute;inset:-5px;border-radius:50%;pointer-events:none;z-index:0;
+}
+[data-moldura=anel]::before{border:2px solid var(--mc);box-shadow:0 0 10px color-mix(in srgb,var(--mc) 60%,transparent)}
+[data-moldura=duplo]::before{border:2px solid var(--mc);outline:2px solid color-mix(in srgb,var(--mc) 45%,transparent);outline-offset:3px}
+[data-moldura=pulso]::before{
+  border:2px solid var(--mc);animation:molduraPulso 2s ease-in-out infinite;
+}
+@keyframes molduraPulso{
+  0%,100%{transform:scale(1);opacity:.95}
+  50%{transform:scale(1.07);opacity:.5}
+}
+[data-moldura=orbita]::before{
+  border:2px dashed color-mix(in srgb,var(--mc) 75%,transparent);
+  animation:molduraGira 9s linear infinite;
+}
+@keyframes molduraGira{to{transform:rotate(360deg)}}
+[data-moldura=brilho]::before{
+  background:conic-gradient(from 0deg,var(--mc),transparent 35%,transparent 65%,var(--mc));
+  animation:molduraGira 3.5s linear infinite;
+  -webkit-mask:radial-gradient(circle,transparent 0 calc(50% - 3px),#000 calc(50% - 3px));
+}
+[data-moldura=chama]::before{
+  background:conic-gradient(#ff4f63,#ffb43d,#ff4f63,#ff8a3d,#ff4f63);
+  animation:molduraGira 4s linear infinite;
+  -webkit-mask:radial-gradient(circle,transparent 0 calc(50% - 3px),#000 calc(50% - 3px));
+  filter:blur(.3px);
+}
+[data-moldura=arco]::before{
+  background:conic-gradient(#ff4f63,#ffb43d,#2fe3a6,#45dcff,#a855f7,#ff4f63);
+  animation:molduraGira 6s linear infinite;
+  -webkit-mask:radial-gradient(circle,transparent 0 calc(50% - 3px),#000 calc(50% - 3px));
+}
+[data-moldura=cristal]::before{
+  border:2px solid transparent;
+  background:linear-gradient(140deg,#9bd4ff,#ffffff,#45dcff) border-box;
+  -webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+}
+.av-status .avatar,.av-status .ponto,.cartao-avatar .avatar,.cartao-avatar .cartao-status{position:relative;z-index:1}
+
+/* amostra das molduras no editor */
+.sub-rotulo{
+  font-family:var(--font-display);font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--dim);margin:10px 0 6px;
+}
+.nick-preview{
+  display:grid;place-items:center;min-height:58px;padding:10px;border-radius:12px;
+  background:var(--sunken);border:1px solid var(--line);font-size:22px;font-weight:600;
+  overflow:hidden;
+}
+.molduras{display:flex;flex-wrap:wrap;gap:10px}
+.moldura-opcao{
+  width:52px;height:52px;border-radius:12px;display:grid;place-items:center;
+  background:var(--surface-2);border:1px solid var(--line);transition:.14s;position:relative;
+}
+.moldura-opcao:hover{border-color:var(--line-3);transform:translateY(-2px)}
+.moldura-opcao.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
+.moldura-opcao .av-status{width:30px;height:30px}
+.moldura-opcao .avatar{width:30px;height:30px;font-size:10px}
+
 /* ===================== Mini perfil ===================== */
 .mini{
   position:fixed;z-index:190;width:288px;border-radius:16px;overflow:hidden;
@@ -1013,7 +1140,7 @@ body.fullscreen .stage{padding:12px}
   font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:.3px;
   color:var(--text);max-width:100%;transition:.12s;
 }
-.mini-nome span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-nome span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;padding:2px 0}
 .mini-nome svg{width:15px;height:15px;flex:none;opacity:0;transition:.14s;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .mini-nome:hover{color:var(--cyan)}
 .mini-nome:hover svg{opacity:1;transform:translateX(2px)}
