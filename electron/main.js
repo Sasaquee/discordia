@@ -17,6 +17,17 @@ const { createServer, DEFAULT_PORT, localIPs } = require('../server/server');
 app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
 app.commandLine.appendSwitch('webrtc-ip-handling-policy', 'default');
 
+/**
+ * Captura de tela pela GPU (Windows Graphics Capture) em vez do caminho antigo
+ * por GDI. Sem isto a captura entrega menos quadros do que os 60 pedidos - medido:
+ * 39fps de captura numa tela pedida a 60, com o codificador de hardware ocioso e
+ * "qualityLimitationReason: none". O gargalo era pegar a imagem, nao comprimir.
+ */
+app.commandLine.appendSwitch('enable-features',
+  'AllowWgcDesktopCapturer,AllowWgcScreenCapturer,AllowWgcWindowCapturer,WebRtcAllowWgcDesktopCapturer');
+// deixa o codificador de hardware ser usado sempre que existir
+app.commandLine.appendSwitch('enable-accelerated-video-encode');
+
 // ---- instancia unica (DISCORDIA_MULTI=1 abre varias, util p/ testar sozinho) ----
 const ALLOW_MULTI = !!process.env.DISCORDIA_MULTI;
 if (!ALLOW_MULTI && !app.requestSingleInstanceLock()) app.quit();

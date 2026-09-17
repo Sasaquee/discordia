@@ -152,7 +152,33 @@ A **nota** ("só você vê") fica no `settings.json` da sua máquina e nunca é 
 chave dela é o **nome** da pessoa, não o id: o id é sorteado a cada conexão e a nota
 não sobreviveria à próxima chamada.
 
+## Desempenho do compartilhamento
+
+Medido com `getStats()` do sender, compartilhando a tela de verdade entre duas
+instâncias (`qualityLimitationReason`, `framesPerSecond`, `encoderImplementation`):
+
+- o codificador é **de hardware** (`MediaFoundationVideoEncodeAccelerator`), então o
+  H264 na frente está cumprindo o papel;
+- `qualityLimitationReason: none` com tela parada, ou seja, nem CPU nem banda seguravam
+  naquele cenário.
+
+O que estava errado era a **combinação** dos parâmetros: `degradationPreference:
+'balanced'` junto com `scaleResolutionDownBy: 1`. Proibido baixar a resolução, a única
+saída do codificador quando apertava era cortar quadros — travar. Agora é
+`maintain-framerate` com a resolução livre para ceder: em tela de jogo, fluidez vale
+mais que nitidez.
+
+As flags de captura por GPU (`AllowWgcDesktopCapturer` e companhia) foram ligadas, mas
+**não houve como comprovar ganho**: o teste roda com a tela parada, e tela parada não
+gera quadros novos (a captura entregou os mesmos 39fps antes e depois). Ficam porque o
+caminho WGC é o recomendado no Windows 10+, não porque foram medidas.
+
 ## Assistir ou não, e tela cheia
+
+**Nenhuma tela abre sozinha, nem a sua.** Quem compartilha já vê a própria tela no
+monitor, e desenhar a captura de novo custa GPU justamente de quem menos pode pagar por
+isso — por isso a própria tela também virou convite (`Você está compartilhando a tela` +
+`Ver minha tela`). Fechar a própria **não corta a transmissão**: a track continua viva.
 
 A tela de outra pessoa **não abre sozinha**. Ela chega pelo WebRTC, mas o palco mostra só
 um convite (`Fulano está compartilhando a tela` + botão Assistir); o vídeo só aparece
