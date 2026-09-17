@@ -152,6 +152,25 @@ A **nota** ("só você vê") fica no `settings.json` da sua máquina e nunca é 
 chave dela é o **nome** da pessoa, não o id: o id é sorteado a cada conexão e a nota
 não sobreviveria à próxima chamada.
 
+## Assistir ou não, e tela cheia
+
+A tela de outra pessoa **não abre sozinha**. Ela chega pelo WebRTC, mas o palco mostra só
+um convite (`Fulano está compartilhando a tela` + botão Assistir); o vídeo só aparece
+depois do clique, e o `x` no canto do quadro para de assistir sem mexer em quem está
+transmitindo. Câmera de gente continua abrindo direto: é rosto, não transmissão.
+
+Detalhe: `convitesDeTela()` entra na assinatura do `renderStage`, senão o palco não
+redesenha quando alguém começa ou para de compartilhar.
+
+**`min-height:0` no `.stage-wrap` não é detalhe.** Item de grid e de flex não encolhe
+abaixo do próprio conteúdo por padrão, então o palco crescia e empurrava o dock de
+controles para fora da janela — medido: dock em `y=740-848` numa tela de 760, sumido em
+qualquer tamanho de quadro, não só nos grandes.
+
+Em **tela cheia** o `max-height:64vh` do quadro em foco (que existe para a janela normal
+não empurrar as miniaturas) precisa ser desligado, senão sobra tarja preta. As miniaturas
+viram sobreposição flutuante no rodapé, para não roubarem altura do vídeo.
+
 ## Reconexão, atualização e apertar para falar
 
 **Reconexão.** Quando a sinalização cai sem ser a pedido (wi-fi oscilou, o túnel piscou,

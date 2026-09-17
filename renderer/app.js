@@ -1081,6 +1081,13 @@ function videoTile(key, stream, label, opts = {}) {
     const lbl = el('div', 'tile-label');
     node.appendChild(lbl);
 
+    if (!opts.local && opts.tela) {
+      const fechar = el('button', 'tile-fechar', '&times;');
+      fechar.title = 'Parar de assistir';
+      fechar.onclick = (ev) => { ev.stopPropagation(); pararDeAssistir(key); };
+      node.appendChild(fechar);
+    }
+
     const fit = el('button', 'tile-fit', 'preencher');
     fit.onclick = (e) => {
       e.stopPropagation();
@@ -1127,10 +1134,26 @@ function personTile(person) {
 }
 
 /** Videos ativos na sala (meus e dos outros), na ordem em que devem aparecer. */
-function activeVideos() {
+/**
+ * Quem decide se assiste e voce. A tela do outro chega, mas so vira video
+ * depois que voce clica em assistir - antes disso e so um convite no palco.
+ * Camera de gente na chamada continua abrindo direto: e rosto, nao transmissao.
+ */
+const assistindo = new Set();
+
+function estouAssistindo(key) { return assistindo.has(key); }
+function assistir(key) { assistindo.add(key); renderStage(); }
+function pararDeAssistir(key) {
+  assistindo.delete(key);
+  if (S.focusKey === key) S.focusKey = null;
+  renderStage();
+}
+
+/** Tudo que da para ver agora, assistindo ou nao. */
+function videosDisponiveis() {
   const videos = [];
-  if (S.screenStream) videos.push({ key: 'self:screen', stream: S.screenStream, label: 'Sua tela', local: true });
-  if (S.camStream) videos.push({ key: 'self:cam', stream: S.camStream, label: 'Sua camera', local: true });
+  if (S.screenStream) videos.push({ key: 'self:screen', stream: S.screenStream, label: 'Sua tela', local: true, tela: true });
+  if (S.camStream) videos.push({ key: 'self:cam', stream: S.camStream, label: 'Sua camera', local: true, tela: false });
   for (const p of S.peers.values()) {
     for (const [sid, st] of p.streams) {
       if (!st.getVideoTracks().length) continue;
@@ -1139,11 +1162,40 @@ function activeVideos() {
         key: p.id + ':' + sid,
         stream: st,
         label: p.name + (ehTela ? ' - tela' : ' - camera'),
+        nome: p.name,
         local: false,
+        tela: ehTela,
       });
     }
   }
   return videos;
+}
+
+function activeVideos() {
+  // a minha propria tela e as cameras aparecem sempre; tela dos outros so se eu quiser
+  return videosDisponiveis().filter((v) => v.local || !v.tela || estouAssistindo(v.key));
+}
+
+/** Telas oferecidas que eu ainda nao estou assistindo. */
+function convitesDeTela() {
+  return videosDisponiveis().filter((v) => !v.local && v.tela && !estouAssistindo(v.key));
+}
+
+function cardConvite(v) {
+  const card = el('div', 'convite-tela');
+  const ic = el('div', 'convite-icone', ICON.screen);
+  card.appendChild(ic);
+  const t = el('div', 'convite-texto');
+  const n = el('div', 'convite-nome');
+  n.textContent = v.nome + ' esta compartilhando a tela';
+  const sub = el('div', 'convite-dica');
+  sub.textContent = 'Voce decide quando assistir';
+  t.append(n, sub);
+  card.appendChild(t);
+  const b = el('button', 'btn primary', 'Assistir');
+  b.onclick = () => assistir(v.key);
+  card.appendChild(b);
+  return card;
 }
 
 let assinaturaPalco = '';
@@ -1173,9 +1225,11 @@ function renderStage() {
 
   // Reconstruir o palco re-anexa os <video> no DOM e o decodificador engasga.
   // Se nada mudou de fato (so alguem mutou, por exemplo), nao mexe no DOM.
+  const convites = convitesDeTela();
   const assinatura = JSON.stringify([
     S.settings.layout, S.settings.tileSize, S.settings.hideEmpty, S.focusKey,
     videos.map((v) => v.key + '|' + v.label),
+    convites.map((v) => v.key),
     people.map((p) => p.id + '|' + p.name + '|' + (p.muted ? 1 : 0) + '|' + (p.you ? 1 : 0)),
   ]);
   if (assinatura === assinaturaPalco && stage.children.length) return;
@@ -1192,6 +1246,12 @@ function renderStage() {
 
   stage.innerHTML = '';
 
+  if (convites.length) {
+    const box = el('div', 'convites');
+    for (const v of convites) box.appendChild(cardConvite(v));
+    stage.appendChild(box);
+  }
+
   const grade = (min) => {
     const g = el('div', 'grid');
     g.style.gridTemplateColumns = `repeat(auto-fit,minmax(${min}px,1fr))`;
@@ -1202,20 +1262,20 @@ function renderStage() {
     const principal = videos.find((v) => v.key === foco);
     const g = el('div', 'grid focus-mode');
     g.style.gridTemplateColumns = '1fr';
-    g.appendChild(videoTile(principal.key, principal.stream, principal.label, { local: principal.local }));
+    g.appendChild(videoTile(principal.key, principal.stream, principal.label, { local: principal.local, tela: principal.tela }));
     stage.appendChild(g);
 
     const strip = el('div', 'strip');
     strip.style.gridTemplateColumns = `repeat(auto-fit,minmax(${Math.round(tamanho * 0.42)}px,${Math.round(tamanho * 0.5)}px))`;
     for (const v of videos) {
       if (v.key === foco) continue;
-      strip.appendChild(videoTile(v.key, v.stream, v.label, { local: v.local }));
+      strip.appendChild(videoTile(v.key, v.stream, v.label, { local: v.local, tela: v.tela }));
     }
     if (mostrarPessoas) for (const per of people) strip.appendChild(personTile(per));
     if (strip.children.length) stage.appendChild(strip);
   } else {
     const g = grade(tamanho);
-    for (const v of videos) g.appendChild(videoTile(v.key, v.stream, v.label, { local: v.local }));
+    for (const v of videos) g.appendChild(videoTile(v.key, v.stream, v.label, { local: v.local, tela: v.tela }));
     if (mostrarPessoas) for (const per of people) g.appendChild(personTile(per));
     if (!g.children.length) {
       g.appendChild(el('div', 'dock-empty', 'Todos os quadros estao ocultos. Use o botao de olho para mostrar de novo.'));
