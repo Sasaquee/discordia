@@ -371,7 +371,7 @@ input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15);box-shadow:0
 .app.no-chat .chat{display:none}
 
 /* -------- Sidebar -------- */
-.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .server-head{
   padding:14px 12px 14px 16px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;gap:10px;
@@ -468,7 +468,7 @@ button.avatar{cursor:pointer}
 button.avatar:hover{transform:scale(1.06);box-shadow:0 0 0 2px var(--cyan),0 0 18px rgba(69,220,255,.35)}
 
 /* -------- Palco -------- */
-.stage-wrap{display:flex;flex-direction:column;min-width:0;background:var(--bg);position:relative}
+.stage-wrap{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg);position:relative}
 .stage-head{
   height:52px;display:flex;align-items:center;justify-content:space-between;gap:14px;
   padding:0 16px;border-bottom:1px solid var(--line);background:var(--surface);
@@ -573,9 +573,35 @@ button.avatar:hover{transform:scale(1.06);box-shadow:0 0 0 2px var(--cyan),0 0 1
 .strip .tile.speaking::before,.strip .tile.speaking::after{top:9px;left:10px;height:9px}
 .strip .tile.speaking::after{left:16px;height:14px}
 
+/* convite para assistir a tela de alguem */
+.convites{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.convite-tela{
+  display:flex;align-items:center;gap:13px;padding:13px 14px;border-radius:14px;
+  background:linear-gradient(100deg,rgba(69,220,255,.09),rgba(192,46,224,.07));
+  border:1px solid rgba(69,220,255,.26);
+}
+.convite-icone{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;
+  background:rgba(69,220,255,.14);color:var(--cyan);
+}
+.convite-icone svg{width:20px;height:20px}
+.convite-texto{flex:1;min-width:0}
+.convite-nome{font-size:13.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.convite-dica{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+/* sair da transmissao sem mexer em quem esta transmitindo */
+.tile-fechar{
+  position:absolute;left:10px;top:10px;width:26px;height:26px;border-radius:8px;
+  background:rgba(4,6,14,.78);backdrop-filter:blur(10px);
+  border:1px solid rgba(126,158,235,.14);color:var(--muted);
+  font-size:17px;line-height:1;opacity:0;transition:.16s;z-index:2;
+}
+.tile:hover .tile-fechar{opacity:1}
+.tile-fechar:hover{color:#fff;background:var(--danger);border-color:var(--danger)}
+
 /* -------- Dock de controles -------- */
 .controls{
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:center;flex:none;
   padding:14px 12px 16px;background:var(--bg);border-top:1px solid var(--line);
 }
 .ctrl-dock{
@@ -900,7 +926,18 @@ body.fullscreen .chat,
 body.fullscreen .stage-head,
 body.fullscreen .controls{display:none}
 body.fullscreen .app{position:absolute;inset:0;grid-template-columns:1fr}
-body.fullscreen .stage{padding:12px}
+body.fullscreen .stage{padding:0;display:flex;flex-direction:column}
+body.fullscreen .grid.focus-mode{flex:1;min-height:0;gap:0}
+/* o limite de 64vh existe para a janela normal; em tela cheia ele sobrava preto */
+body.fullscreen .grid.focus-mode .tile{max-height:none;height:100%;border:none;border-radius:0}
+body.fullscreen .tile.video-tile video{object-fit:contain;background:#000}
+/* miniaturas viram sobreposicao para nao roubar altura do video */
+body.fullscreen .strip{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:74px;margin:0;z-index:110;
+  background:rgba(4,6,14,.55);backdrop-filter:blur(10px);padding:8px;border-radius:14px;
+  opacity:.25;transition:opacity .2s;max-width:min(92vw,900px);
+}
+body.fullscreen .strip:hover{opacity:1}
 .fs-bar{
   position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:120;
   display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:16px;
