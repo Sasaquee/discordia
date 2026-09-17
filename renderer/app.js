@@ -1081,7 +1081,7 @@ function videoTile(key, stream, label, opts = {}) {
     const lbl = el('div', 'tile-label');
     node.appendChild(lbl);
 
-    if (!opts.local && opts.tela) {
+    if (opts.tela) {
       const fechar = el('button', 'tile-fechar', '&times;');
       fechar.title = 'Parar de assistir';
       fechar.onclick = (ev) => { ev.stopPropagation(); pararDeAssistir(key); };
@@ -1172,27 +1172,31 @@ function videosDisponiveis() {
 }
 
 function activeVideos() {
-  // a minha propria tela e as cameras aparecem sempre; tela dos outros so se eu quiser
-  return videosDisponiveis().filter((v) => v.local || !v.tela || estouAssistindo(v.key));
+  // camera aparece sempre; tela (minha ou dos outros) so se eu quiser assistir
+  return videosDisponiveis().filter((v) => !v.tela || estouAssistindo(v.key));
 }
 
-/** Telas oferecidas que eu ainda nao estou assistindo. */
+/** Telas disponiveis que eu ainda nao estou assistindo, inclusive a minha. */
 function convitesDeTela() {
-  return videosDisponiveis().filter((v) => !v.local && v.tela && !estouAssistindo(v.key));
+  return videosDisponiveis().filter((v) => v.tela && !estouAssistindo(v.key));
 }
 
 function cardConvite(v) {
-  const card = el('div', 'convite-tela');
-  const ic = el('div', 'convite-icone', ICON.screen);
-  card.appendChild(ic);
+  const card = el('div', 'convite-tela' + (v.local ? ' propria' : ''));
+  card.appendChild(el('div', 'convite-icone', ICON.screen));
   const t = el('div', 'convite-texto');
   const n = el('div', 'convite-nome');
-  n.textContent = v.nome + ' esta compartilhando a tela';
   const sub = el('div', 'convite-dica');
-  sub.textContent = 'Voce decide quando assistir';
+  if (v.local) {
+    n.textContent = 'Voce esta compartilhando a tela';
+    sub.textContent = 'A galera esta vendo. Nao precisa se ver aqui.';
+  } else {
+    n.textContent = v.nome + ' esta compartilhando a tela';
+    sub.textContent = 'Voce decide quando assistir';
+  }
   t.append(n, sub);
   card.appendChild(t);
-  const b = el('button', 'btn primary', 'Assistir');
+  const b = el('button', v.local ? 'btn ghost' : 'btn primary', v.local ? 'Ver minha tela' : 'Assistir');
   b.onclick = () => assistir(v.key);
   card.appendChild(b);
   return card;
@@ -1624,11 +1628,14 @@ async function startShare() {
           if (t.kind === 'video') {
             par.encodings[0].maxBitrate = preset.bitrate;
             par.encodings[0].maxFramerate = preset.fps;
-            par.encodings[0].scaleResolutionDownBy = 1;   // nunca reduzir a resolucao
             par.encodings[0].networkPriority = 'high';
-            // 'balanced': quando a rede aperta, cede um pouco dos dois lados em vez
-            // de esmagar a resolucao (borrado) ou travar os quadros
-            par.degradationPreference = 'balanced';
+            // Antes: 'balanced' + scaleResolutionDownBy travado em 1. A combinacao
+            // era ruim: proibido baixar a resolucao, a unica saida do codificador
+            // quando apertava era cortar quadros - ou seja, travar. Em tela de jogo
+            // fluidez vale mais que nitidez, entao segura o fps e deixa a resolucao
+            // ceder quando precisar.
+            par.degradationPreference = 'maintain-framerate';
+            delete par.encodings[0].scaleResolutionDownBy;
           } else {
             par.encodings[0].maxBitrate = 160_000; // audio de midia merece folga
           }
@@ -1647,7 +1654,6 @@ async function startShare() {
 
     pushState();
     updateControlUI();
-    S.focusKey = 'self:screen';
     renderStage();
     const hasAudio = stream.getAudioTracks().length > 0;
     toast(hasAudio ? 'Compartilhando tela com audio do PC.' : 'Compartilhando tela (sem audio do sistema).', 'ok');
