@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld('discordia', {
   // area de transferencia
   copiar: (texto) => ipcRenderer.invoke('clipboard:write', texto),
 
+  // manter o app acordado durante a chamada
+  manterAcordado: (v) => ipcRenderer.invoke('energia:manter', v),
+
   // apertar para falar
   pttConfigurar: (opts) => ipcRenderer.invoke('ptt:configurar', opts || {}),
   pttCapturar: () => ipcRenderer.invoke('ptt:capturar'),

@@ -173,6 +173,50 @@ As flags de captura por GPU (`AllowWgcDesktopCapturer` e companhia) foram ligada
 gera quadros novos (a captura entregou os mesmos 39fps antes e depois). Ficam porque o
 caminho WGC é o recomendado no Windows 10+, não porque foram medidas.
 
+## Com o app em segundo plano
+
+Relato: "quando o app está em segundo plano ou minimizado, ele começa a travar".
+Foi medido o que dava para medir, e o resultado não bate inteiro com a suspeita.
+
+**O que ficou provado.** Com a janela minimizada, o `requestAnimationFrame` cai de
+**60 para 1 volta por segundo** (um `setInterval` paralelo, no mesmo teste, seguiu
+firme). Janela minimizada não produz quadros, então o rAF não tem por que rodar - e
+`backgroundThrottling: false` não muda isso, nem as flags de segundo plano. O loop de
+nível, que acende quem está falando e move o medidor do microfone, rodava em rAF:
+congelava junto. Agora roda em `setInterval(33)`, e o teste mede 60,8 voltas/s
+minimizado contra 60,7 visível.
+
+**O que não se reproduziu.** Envio de tela, áudio recebido e prioridade do processo
+ficaram iguais com a janela minimizada, e ficaram iguais também com o código antigo:
+
+| medida | visível | minimizada |
+| --- | --- | --- |
+| quadros enviados | 32,2 fps | 32,1 fps |
+| áudio remendado (concealment) | 0,00% | 0,00% |
+| prioridade do processo | Normal (8) | Normal (8) |
+
+Uma medida anterior chegou a acusar 14% de queda ao minimizar. **Era artefato da
+bancada**: a janela do Discordia estava na mesma tela que estava sendo capturada, então,
+visível, ela devolvia o próprio vídeo para a captura (efeito espelho) e gerava mudança
+de pixel a mais. Ao minimizar sumia o espelho, não os quadros. Refeito capturando o
+outro monitor, a queda vira 0% - inclusive no código sem correção nenhuma.
+
+**Hipótese que ficou de pé e não deu para testar.** O cenário real é jogo em tela cheia,
+e a bancada roda em `127.0.0.1` com a máquina de bobeira: não tem disputa de GPU nem
+rede no meio. Se o travamento for o jogo monopolizando a GPU (Modo Jogo do Windows,
+preferência de GPU por app), nada disso aparece aqui. Isso precisa ser medido com o jogo
+aberto, não em laboratório.
+
+**Mitigações que ficaram assim mesmo.** As flags `disable-background-timer-throttling`,
+`disable-renderer-backgrounding`, `disable-backgrounding-occluded-windows` e o
+`CalculateNativeWinOcclusion` desligado entraram, mais um `powerSaveBlocker` enquanto a
+chamada está de pé. São o remédio padrão para esse sintoma e não custam nada, mas
+**nenhuma delas foi comprovada aqui** - entram pelo mesmo motivo que as flags de WGC.
+
+> `CalculateNativeWinOcclusion` foi junto do `WebRtcHideLocalIpsWithMdns`, na **mesma**
+> chamada de `appendSwitch`. Chamar duas vezes com a mesma chave substitui o valor, e
+> perder o mDNS derruba a VPN.
+
 ## Assistir ou não, e tela cheia
 
 **Nenhuma tela abre sozinha, nem a sua.** Quem compartilha já vê a própria tela no
