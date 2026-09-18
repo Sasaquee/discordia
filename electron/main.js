@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, Menu, Tray, nativeImage, dialog, screen, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, Menu, Tray, nativeImage, dialog, screen, clipboard, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile, spawn } = require('child_process');
@@ -14,7 +14,19 @@ const { createServer, DEFAULT_PORT, localIPs } = require('../server/server');
  * 2) webrtc-ip-handling-policy=default: usa TODAS as interfaces, inclusive a virtual
  *    da VPN, e nao so a rota padrao.
  */
-app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
+app.commandLine.appendSwitch('disable-features',
+  // mDNS: sem isto a VPN nao conecta (ver "Decisoes que nao sao obvias")
+  // CalculateNativeWinOcclusion: com ele o Chromium percebe a janela coberta ou
+  //   minimizada e pausa o pipeline - medido, o envio caia 14% ao minimizar
+  'WebRtcHideLocalIpsWithMdns,CalculateNativeWinOcclusion');
+
+/**
+ * App minimizado nao pode virar app pela metade: quem compartilha costuma jogar
+ * em tela cheia com o Discordia atras, e era justamente ai que travava.
+ */
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('webrtc-ip-handling-policy', 'default');
 
 /**
@@ -202,6 +214,20 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// ---- nao deixar o sistema suspender durante a chamada ----
+let travaDeEnergia = null;
+ipcMain.handle('energia:manter', (_e, manter) => {
+  try {
+    if (manter && travaDeEnergia == null) {
+      travaDeEnergia = powerSaveBlocker.start('prevent-app-suspension');
+    } else if (!manter && travaDeEnergia != null) {
+      powerSaveBlocker.stop(travaDeEnergia);
+      travaDeEnergia = null;
+    }
+  } catch {}
+  return { ok: true, ativo: travaDeEnergia != null };
 });
 
 // ---- apertar para falar (push to talk) ----

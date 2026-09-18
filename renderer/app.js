@@ -352,9 +352,12 @@ function startLevelLoop() {
         markSpeaking(p.id, sp);
       }
     }
-    requestAnimationFrame(tick);
   };
-  requestAnimationFrame(tick);
+  // Timer, e nao requestAnimationFrame: janela minimizada nao produz quadros, e
+  // o rAF cai de 60 para 1 volta por segundo (medido) - o indicador de quem esta
+  // falando e o medidor do microfone congelam junto. backgroundThrottling:false
+  // nao resolve isso, nem as flags de segundo plano. 30Hz sobra pro que o loop faz.
+  setInterval(tick, 33);
 }
 
 function markSpeaking(id, on) {
@@ -968,6 +971,7 @@ function joinRoom(name) {
   if (S.room === name) return;
   if (S.room) clearPeers();
   send({ type: 'join', room: name, muted: S.muted, deafened: S.deafened });
+  acordado(true);
 }
 
 function leaveRoom() {
@@ -977,6 +981,12 @@ function leaveRoom() {
   clearPeers();
   send({ type: 'leave' });
   sfx.leave();
+  acordado(false);
+}
+
+/** Enquanto a chamada esta de pe o Windows nao pode suspender o app. */
+function acordado(manter) {
+  try { window.discordia?.manterAcordado?.(manter); } catch {}
 }
 
 function renderRooms() {
