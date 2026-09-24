@@ -173,6 +173,54 @@ As flags de captura por GPU (`AllowWgcDesktopCapturer` e companhia) foram ligada
 gera quadros novos (a captura entregou os mesmos 39fps antes e depois). Ficam porque o
 caminho WGC é o recomendado no Windows 10+, não porque foram medidas.
 
+## Quem entra de fora, e a tela preta
+
+Relato: para quem entra pela internet o compartilhamento fica preto; na LAN funciona.
+**Nao foi resolvido.** O que existe aqui e a bancada, o que ela conseguiu descartar, e o
+botao que traz o numero que falta.
+
+**Como se testa sem um amigo de fora.** Descartando todo candidato ICE `typ host` antes
+de mandar, e tambem as linhas `a=candidate` do proprio SDP (o `iceCandidatePoolSize`
+pre-junta candidatos e embute no offer, entao filtrar so o trickle nao adianta), as duas
+instancias locais so conseguem se achar pelo IP publico. O caminho fecha `srflx -> srflx`,
+saindo e voltando pelo roteador. O filtro esta em `scripts/sem-lan.js`: cole o conteudo antes do resto do teste, nos **dois** lados (`DISCORDIA_EVAL`).
+
+**O que a bancada descartou.** Em toda rodada a imagem chegou, nunca ficou preta, e com
+**zero pacote perdido**. Testando o que se pede ao codificador, quatro rodadas intercaladas:
+
+| pedido | rodadas | resolucao que chegou |
+| --- | --- | --- |
+| 14 Mbps a 60fps (preset cru, o de hoje) | 2 | 1920x1080 |
+| 3 Mbps a 30fps (teto menor) | 2 | 1920x1080 |
+
+Empate: nas quatro o caminho entregou ~2,6 Mbps e o teto de 3 Mbps nunca chegou a
+apertar. **Inconclusivo, nao negativo** - o teste nao chegou a exercitar a diferenca. Um
+teto por caminho chegou a ser escrito e foi **retirado**: mexer no que ja funciona sem
+prova, com risco de limitar quem tem link bom, nao paga.
+
+> `degradationPreference: 'balanced'` foi testado no mesmo caminho e saiu pior
+> (640x360 contra 960x540, numa rodada em que o caminho estava mais apertado). O
+> `maintain-framerate` da PR #12 fica.
+
+A bancada nao tem perda de pacote nem link de verdade, e preto costuma ser keyframe que
+nao chega. Entao ela nao consegue decidir isso.
+
+**O numero que falta, e como pegar.** Configuracoes > **Copiar diagnostico**
+(`diagnosticoDaChamada()`). Quem esta vendo preto clica e manda o texto. O que separa os
+casos:
+
+- `bytesReceived` subindo e `framesDecoded` em **zero**: dado chega e nao decodifica.
+  E codec ou keyframe, nao banda.
+- `bytesReceived` em **zero**: nao chega nada. O problema e caminho, nao qualidade.
+- `conexao` diferente de `connected`, ou caminho `nenhum`: ICE nao fechou.
+
+**Hipotese principal para o caso "nao chega nada": nao ha TURN.** So STUN
+(`RTC_CONFIG` tem os dois do Google). Quem estiver atras de NAT simetrico ou CGNAT - que
+e comum em provedor brasileiro - nao fecha caminho nenhum. TURN resolveria, mas poe a
+midia para passar por um servidor de terceiro, que e o oposto do "P2P sem nuvem" do app:
+decisao para tomar com o dono do repo. O diagnostico diz se e esse o caso antes de
+mexer nisso.
+
 ## Com o app em segundo plano
 
 Relato: "quando o app está em segundo plano ou minimizado, ele começa a travar".
