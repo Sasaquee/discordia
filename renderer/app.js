@@ -1674,6 +1674,69 @@ async function startShare() {
   }
 }
 
+/**
+ * Relatorio de uma linha por pessoa: o caminho que o ICE fechou e a qualidade
+ * em cada direcao. Existe porque "fica preto para quem e de fora" nao se
+ * reproduz aqui: sem numero do lado de quem ve preto, qualquer conserto e chute.
+ * O que denuncia tela preta e `framesDecoded` em zero com `bytesReceived` subindo.
+ */
+async function diagnosticoDaChamada() {
+  const L = [];
+  let info = {};
+  try { info = await API.appInfo(); } catch {}
+  L.push('Discordia v' + (info.version || '?') + ' | sala: ' + (S.room || 'nenhuma') +
+    ' | ' + new Date().toLocaleString('pt-BR'));
+  if (!S.peers.size) { L.push('(ninguem conectado)'); return L.join('\n'); }
+
+  for (const p of S.peers.values()) {
+    let st = null;
+    try { st = await p.pc.getStats(); } catch {}
+    if (!st) { L.push('\n' + p.name + ': sem estatisticas'); continue; }
+
+    let par = null, out = null, inb = null, aud = null;
+    const cand = new Map();
+    st.forEach((r) => {
+      if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') par = r;
+      if (r.type === 'local-candidate' || r.type === 'remote-candidate') cand.set(r.id, r);
+      if (r.type === 'outbound-rtp' && r.kind === 'video') out = r;
+      if (r.type === 'inbound-rtp' && r.kind === 'video') inb = r;
+      if (r.type === 'inbound-rtp' && r.kind === 'audio') aud = r;
+    });
+    const tipo = (id) => ((cand.get(id) || {}).candidateType || '?');
+    const mesmaRede = !!par && tipo(par.localCandidateId) === 'host' && tipo(par.remoteCandidateId) === 'host';
+
+    L.push('');
+    L.push(p.name + ' [' + p.pc.connectionState + '] caminho ' +
+      (par ? tipo(par.localCandidateId) + '->' + tipo(par.remoteCandidateId) : 'nenhum') +
+      (par ? (mesmaRede ? ' (mesma rede)' : ' (internet)') : '') +
+      (par && par.currentRoundTripTime != null ? ', ping ' + Math.round(par.currentRoundTripTime * 1000) + 'ms' : '') +
+      (par && par.availableOutgoingBitrate ? ', banda ' + (par.availableOutgoingBitrate / 1e6).toFixed(1) + ' Mbps' : ''));
+
+    if (out) {
+      L.push('  mando video ' + (out.frameWidth || 0) + 'x' + (out.frameHeight || 0) +
+        ' @ ' + (out.framesPerSecond || 0) + 'fps, ' + (out.framesSent || 0) + ' quadros, ' +
+        'limitado por ' + (out.qualityLimitationReason || '?') + ', ' + (out.encoderImplementation || '?'));
+    } else {
+      L.push('  mando video: nao estou mandando');
+    }
+
+    if (inb) {
+      L.push('  recebo video ' + (inb.frameWidth || 0) + 'x' + (inb.frameHeight || 0) + ', ' +
+        (inb.framesDecoded || 0) + ' quadros, ' + (inb.keyFramesDecoded || 0) + ' keyframes, ' +
+        (inb.framesDropped || 0) + ' descartados, ' + (inb.packetsLost || 0) + ' pacotes perdidos, ' +
+        Math.round((inb.bytesReceived || 0) / 1024) + ' KB, ' + (inb.decoderImplementation || '?'));
+      if (!inb.framesDecoded && inb.bytesReceived) L.push('  >>> TELA PRETA: chegou dado mas nao decodificou nenhum quadro');
+      if (!inb.bytesReceived) L.push('  >>> TELA PRETA: nao chegou nenhum dado de video');
+    } else {
+      L.push('  recebo video: ninguem esta mandando video pra mim');
+    }
+
+    if (aud) L.push('  recebo audio: ' + (aud.packetsLost || 0) + ' pacotes perdidos, ' +
+      (aud.concealmentEvents || 0) + ' remendos');
+  }
+  return L.join('\n');
+}
+
 function stopShare() {
   if (!S.screenStream) { S.sharing = false; updateControlUI(); return; }
   const stream = S.screenStream;
@@ -3198,6 +3261,19 @@ function wireUI() {
     saveSettings({ pttLigado: S.settings.pttLigado });
     aplicarConfigPTT();
   };
+  $('btnDiag').onclick = async () => {
+    const btn = $('btnDiag');
+    btn.disabled = true;
+    try {
+      const txt = await diagnosticoDaChamada();
+      await API.copiar(txt);
+      toast('Diagnostico copiado. E so colar onde voce for mandar.', 'ok');
+    } catch (err) {
+      toast('Nao consegui montar o diagnostico: ' + err.message, 'err');
+    }
+    btn.disabled = false;
+  };
+
   $('btnPttTecla').onclick = async () => {
     const btn = $('btnPttTecla');
     btn.disabled = true;
